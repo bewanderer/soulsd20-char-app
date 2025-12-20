@@ -1,6 +1,14 @@
-# Nuxt 3 Minimal Starter
+# SD20 App - Souls D20 Character Sheet
 
-Look at the [Nuxt 3 documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+A web-based character sheet and companion app for the Souls D20 tabletop RPG system.
+
+## Fonts & Licenses
+
+This application uses fonts from Google Fonts under the SIL Open Font License (OFL):
+- **Cardo** - Primary font for general text
+- **Cinzel** - Character names only
+
+See [FONTS_LICENSE.md](./FONTS_LICENSE.md) for complete license information and attribution.
 
 ## Setup
 

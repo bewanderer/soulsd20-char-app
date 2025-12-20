@@ -1,127 +1,67 @@
 <template>
-  <div class="flex flex-col w-full main-tab">
-    <h1 class="py-4 bg-dismid w-full flex justify-center text-white text-3xl font-semibold z-10 border-b">
-      Character
-    </h1>
+  <div class="content-area-wrapper">
+    <!-- Left Panel (50%) -->
+    <div class="content-panel left-panel">
+      <h2 class="panel-title">Character Info</h2>
 
-    <div class="flex w-full h-full">
-      <div class="w-2/5 p-4 border-r overflow-auto">
-        <div class="flex w-full mb-4 text-white">
-          <!-- left -->
-          <div class="flex flex-col space-y-2 border-r py-1 px-2">
-            <div class="w-full">
-              Souls Level
-            </div>
-
-            <div class="w-full">
-              Souls
-            </div>
-
-            <div class="w-full">
-              Gender
-            </div>
-  
-            <div class="w-full">
-              Lineage
-            </div>
-  
-            <div class="w-full">
-              Background
-            </div>
-
-            <div class="w-full">
-              Undying
-            </div>
-          </div>
-          
-          
-          <div class="flex flex-col justify-between w-full px-2 mr-2">
-            <input
-              v-model="playerStore.Level"
-              type="text"
-              class="w-full max-w-[160px] px-1 text-center text-charcoal bg-white rounded-sm"
-            />
-
-            <div class="w-full flex justify-center max-w-[160px] pl-1 pr-3 text-center text-charcoal bg-white rounded-sm">
-              <input
-                v-model="playerStore.Souls"
-                type="text"
-                class="w-6 text-right bg-white text-charcoal"
-              />
-              <div class="ml-1">
-                /
-                {{ requiredSoulsToLevel }}
-              </div>
-            </div>
-
-            <input
-              v-model="playerStore.Gender"
-              type="text"
-              class="w-full max-w-[160px] px-1 text-center text-charcoal bg-white rounded-sm"
-            />
-
-            <input
-              v-model="playerStore.Lineage"
-              type="text"
-              class="w-full max-w-[160px] px-1 text-center text-charcoal bg-white rounded-sm"
-            />
-
-            <input
-              v-model="playerStore.Background"
-              type="text"
-              class="w-full max-w-[160px] px-1 text-center text-charcoal bg-white rounded-sm"
-            />
-
-            <input
-              v-model="playerStore.Undying"
-              type="text"
-              class="w-full max-w-[160px] px-1 text-center text-charcoal bg-white rounded-sm"
-            />
+        <!-- Physical Description - Always visible and editable -->
+        <div class="w-full mb-4">
+          <h3 class="section-subtitle">Physical Description</h3>
+          <textarea
+            v-model="playerStore.PhysicalDescription"
+            class="physical-description-textarea"
+            placeholder="Describe your character's appearance..."
+            maxlength="500"
+            rows="4"
+            @input="autoResize"
+          />
+          <div class="character-count">
+            {{ (playerStore.PhysicalDescription || '').length }}/500
           </div>
         </div>
 
         <div class="flex justify-between w-full mb-6">
           <div class="flex flex-col items-start w-2/4 mr-4">
-            <h2 class="pb-4 text-lg font-bold text-white text-center">
+            <h2 class="section-heading">
               Resistances
             </h2>
-  
-            <div class="flex flex-col space-y-2 justify-between w-full max-w-xs min-w-fit mb-12">
+
+            <div class="flex flex-col space-y-2 justify-between w-full stat-container mb-6">
               <CharacterResistanceOption
                 name="Max curse bonus"
                 identifier="Curse"
                 sType="status"
                 :statAmount="playerStore.UserInputValues.BonusStatuses.Curse"
               />
-                
+
               <CharacterResistanceOption
                 name="Max frost bonus"
                 identifier="Frost"
                 sType="status"
                 :statAmount="playerStore.UserInputValues.BonusStatuses.Frost"
               />
-                
+
               <CharacterResistanceOption
                 name="Max bleed bonus"
                 identifier="Bleed"
                 sType="status"
                 :statAmount="playerStore.UserInputValues.BonusStatuses.Bleed"
               />
-                
+
               <CharacterResistanceOption
                 name="Max poison bonus"
                 identifier="Poison"
                 sType="status"
                 :statAmount="playerStore.UserInputValues.BonusStatuses.Poison"
               />
-                
+
               <CharacterResistanceOption
                 name="Max toxic bonus"
                 identifier="Toxic"
                 sType="status"
                 :statAmount="playerStore.UserInputValues.BonusStatuses.Toxic"
               />
-  
+
               <CharacterResistanceOption
                 name="Max poise bonus"
                 identifier="Poise"
@@ -129,63 +69,151 @@
                 :statAmount="playerStore.UserInputValues.BonusStatuses.Poise"
               />
             </div>
+
+            <h2 class="section-heading">
+              Calculated attributes
+            </h2>
+
+            <div class="flex flex-col space-y-2 justify-between w-full stat-container mb-6">
+              <CalculatedAttributeOption
+                name="Dodge distance"
+                identifier="DodgeDistanceOverride"
+                :calculatedValue="calculateDodgeDistance"
+                unit="ft"
+              />
+
+              <CalculatedAttributeOption
+                name="Dodge cost"
+                identifier="DodgeCostOverride"
+                :calculatedValue="calculateDodgeCost"
+                unit="AP"
+              />
+
+              <CalculatedAttributeOption
+                name="Item usage cost"
+                identifier="ItemUsageCostOverride"
+                :calculatedValue="calculateItemUsageCost"
+                unit="AP"
+              />
+
+              <CalculatedAttributeOption
+                name="Jump (horizontal)"
+                identifier="JumpHorizontalOverride"
+                :calculatedValue="calculateJumpHorizontal"
+                unit="ft"
+              />
+
+              <CalculatedAttributeOption
+                name="Jump (vertical)"
+                identifier="JumpVerticalOverride"
+                :calculatedValue="calculateJumpVertical"
+                unit="ft"
+              />
+
+              <CalculatedAttributeOption
+                name="Running jump (horizontal)"
+                identifier="RunningJumpHorizontalOverride"
+                :calculatedValue="calculateRunningJumpHorizontal"
+                unit="ft"
+              />
+
+              <CalculatedAttributeOption
+                name="Running jump (vertical)"
+                identifier="RunningJumpVerticalOverride"
+                :calculatedValue="calculateRunningJumpVertical"
+                unit="ft"
+              />
+
+              <CalculatedAttributeOption
+                name="Max equip load"
+                identifier="MaxEquipLoadOverride"
+                :calculatedValue="calculateMaxEquipLoad"
+                unit=""
+              />
+            </div>
           </div>
-  
+
           <div class="flex flex-col items-start w-2/4">
-            <h2 class="pb-4 text-lg font-bold text-white text-center">
+            <h2 class="section-heading">
               General
             </h2>
-  
-            <div class="flex flex-col space-y-2 justify-between w-full max-w-xs min-w-fit mb-12">
-              <CharacterGeneralOption 
+
+            <HealthDieOption
+              name="Health Die"
+              identifier="HealthDie"
+              class="mb-3"
+            />
+
+            <div class="flex flex-col space-y-2 justify-between w-full stat-container mb-6">
+              <CharacterGeneralOption
                 name="Max HP bonus"
                 identifier="MaxHPBonus"
                 :statAmount="playerStore.UserInputValues.MaxHPBonus"
               />
-  
-              <CharacterGeneralOption 
+
+              <CharacterGeneralOption
+                name="Level HP"
+                identifier="LevelHP"
+                :statAmount="playerStore.LevelHP"
+              />
+
+
+              <CharacterGeneralOption
+                name="Temp HP"
+                identifier="TempHP"
+                :statAmount="playerStore.UserInputValues.TempHP"
+                :min="0"
+              />
+
+              <CharacterGeneralOption
                 name="Max FP bonus"
                 identifier="MaxFPBonus"
                 :statAmount="playerStore.UserInputValues.MaxFPBonus"
               />
-  
-              <CharacterGeneralOption 
+
+              <CharacterGeneralOption
                 name="Max AP bonus"
                 identifier="MaxAPBonus"
                 :statAmount="playerStore.UserInputValues.MaxAPBonus"
               />
 
-              <CharacterGeneralOption 
+              <CharacterGeneralOption
                 name="Flask level"
                 identifier="FlaskLevel"
                 :statAmount="playerStore.UserInputValues.FlaskLevel"
               />
 
-              <CharacterGeneralOption 
+              <CharacterGeneralOption
                 name="Total dodges"
                 identifier="TotalDodges"
                 :statAmount="playerStore.UserInputValues.TotalDodges"
               />
-  
-              <!-- <CharacterGeneralOption 
+
+              <!-- <CharacterGeneralOption
                 name="Current dodges"
                 identifier="CurrentDodges"
                 :statAmount="playerStore.UserInputValues.CurrentDodges"
               /> -->
 
-              <CharacterGeneralOption 
-                name="Attunement slots bonus"
+              <CharacterGeneralOption
+                name="Fate points"
+                identifier="FatePoints"
+                :statAmount="playerStore.FatePoints"
+              />
+
+              <CharacterGeneralOption
+                name="Bonus attunement slots"
                 identifier="AttunementSlots"
                 :statAmount="playerStore.UserInputValues.AttunementSlots"
               />
 
-              <CharacterGeneralOption 
+              <CharacterGeneralOption
                 name="Firekeeping checks"
                 identifier="FirekeepingChecks"
                 :statAmount="playerStore.UserInputValues.FirekeepingChecks"
               />
 
-              <CharacterGeneralOption 
+              <CharacterGeneralOption
                 name="Exhaustion"
                 identifier="Exhaustion"
                 :statAmount="playerStore.UserInputValues.Exhaustion"
@@ -193,85 +221,19 @@
             </div>
           </div>
         </div>
+    </div>
 
-        <div class="flex flex-col items-start w-2/4 mr-4">
-            <h2 class="pb-4 text-lg font-bold text-white text-center">
-              Calculated attributes
-            </h2>
-  
-            <div class="flex flex-col space-y-2 justify-between w-full max-w-xs min-w-fit mb-12">
-              <div class="flex justify-between items-center bg-white rounded p-1">
-                <span class="mr-2 font-bold">
-                  Dodge distance
-                </span>
-
-                <span>
-                  {{ dodgeDistance }}
-                </span>
-              </div>
-
-              <div class="flex justify-between items-center bg-white rounded p-1">
-                <span class="mr-2 font-bold">
-                  Dodge cost
-                </span>
-
-                <span>
-                  {{ dodgeCost }}
-                </span>
-              </div>
-
-              <div class="flex justify-between items-center bg-white rounded p-1">
-                <span class="mr-2 font-bold">
-                  Item usage cost
-                </span>
-
-                <span>
-                  {{ itemCost }}
-                </span>
-              </div>
-
-              <div class="flex justify-between items-center bg-white rounded p-1">
-                <span class="mr-2 font-bold">
-                  Jump distance (horizontal)
-                </span>
-
-                <span>
-                  {{ jumpHorizontal }}
-                </span>
-              </div>
-
-              <div class="flex justify-between items-center bg-white rounded p-1">
-                <span class="mr-2 font-bold">
-                  Jump distance (vertical)
-                </span>
-
-                <span>
-                  {{ jumpVertical }}
-                </span>
-              </div>
-
-              <div class="flex justify-between items-center bg-white rounded p-1">
-                <span class="mr-2 font-bold">
-                  Max equip load
-                </span>
-
-                <span>
-                  {{ equipLoad }}
-                </span>
-              </div>
-            </div>
-          </div>
-      </div>
-  
-      <div class="w-3/5 h-full pb-4 overflow-auto">  
-        <div class="w-full p-4">
+    <!-- Right Panel (50%) -->
+    <div class="content-panel right-panel">
+      <h2 class="panel-title">Stats & Skills</h2>
+      <div class="w-full">
           <div class="flex justify-around space-x-8">
             <div class="flex flex-col items-start w-2/4">
-              <h2 class="pb-4 text-lg font-bold text-white text-center">
+              <h2 class="section-heading">
                 Skills
               </h2>
 
-              <div class="flex flex-col space-y-2 justify-between items-center mb-12 w-full max-w-sm">
+              <div class="flex flex-col space-y-2 justify-between items-center mb-12 w-full stat-container">
                 <CharacterStatOption
                   name="Athletics"
                   identifier="Athletics"
@@ -331,10 +293,10 @@
             </div>
         
             <div class="flex flex-col items-start w-2/4">
-              <h2 class="pb-4 text-lg font-bold text-white text-center">
+              <h2 class="section-heading">
                 Stats
               </h2>
-              <div class="flex flex-col justify-start space-y-2 mb-12 w-full max-w-sm">
+              <div class="flex flex-col justify-start space-y-2 mb-12 w-full stat-container">
                   <CharacterStatOption
                     name="Vitality"
                     identifier="Vitality"
@@ -389,11 +351,11 @@
       
           <div class="flex justify-between space-x-8">
             <div class="flex flex-col items-start w-2/4">
-              <h2 class="pb-4 text-lg font-bold text-white text-center">
+              <h2 class="section-heading">
                 Knowledge
               </h2>
     
-              <div class="flex flex-col justify-between space-y-2 mb-12 w-full max-w-sm">
+              <div class="flex flex-col justify-between space-y-2 mb-12 w-full stat-container">
                   <CharacterStatOption
                     name="Magics"
                     identifier="Magics"
@@ -424,6 +386,10 @@
               </div>
             </div>
           </div>
+
+        <!-- Lineage Abilities Section -->
+        <div class="w-full px-4">
+          <LineageAbilities />
         </div>
       </div>
     </div>
@@ -432,40 +398,319 @@
 
 <script setup lang="ts">
 import { usePlayerStore } from '@/store/player'
+import { useCompendiumStore } from '@/store/compendium'
+import LineageAbilities from './LineageAbilities.vue'
+import CalculatedAttributeOption from './CalculatedAttributeOption.vue'
+import HealthDieOption from './HealthDieOption.vue'
 
 const playerStore = usePlayerStore()
+const compendiumStore = useCompendiumStore()
+
+// Auto-resize textarea based on content
+function autoResize(event: Event) {
+  const textarea = event.target as HTMLTextAreaElement
+  textarea.style.height = 'auto'
+  textarea.style.height = Math.max(80, textarea.scrollHeight) + 'px'
+}
 
 const requiredSoulsToLevel = computed(()=>{
   return (playerStore.Level * 10) + 10
 })
 
-const dodgeDistance = computed(()=> {
-  return 'TBD'
+const lineageName = computed(() => {
+  if (!playerStore.LineageId) return ''
+  const lineage = compendiumStore.getLineageById(playerStore.LineageId)
+  return lineage?.name || ''
 })
 
-const dodgeCost = computed(()=> {
-  return 'TBD'
+const bloodlineName = computed(() => {
+  if (!playerStore.BloodlineId) return ''
+  const bloodline = compendiumStore.getBloodlineById(playerStore.BloodlineId)
+  return bloodline?.name || ''
 })
 
-const itemCost = computed(()=> {
+const backgroundName = computed(() => {
+  if (!playerStore.BackgroundId) return ''
+  const background = compendiumStore.getBackgroundById(playerStore.BackgroundId)
+  return background?.name || ''
+})
+
+// Calculate dodge cost based on armor weight and Strength
+const calculateDodgeCost = computed(() => {
+  // If manual override is set, use it
+  if (playerStore.DodgeCostOverride !== null) {
+    return playerStore.DodgeCostOverride
+  }
+
+  const str = playerStore.CharacterStats.Stats.Strength
+  const equippedArmor = playerStore.Equipment.Armor
+
+  // No armor equipped
+  if (!equippedArmor) {
+    return 2
+  }
+
+  // Get armor type from compendium
+  const armor = compendiumStore.Armors.find(a => a.id === equippedArmor.id)
+  if (!armor) {
+    return 2 // Default if armor not found
+  }
+
+  const armorType = armor.armor_type // LIGHT, MEDIUM, or HEAVY
+
+  // Apply formula based on armor type and strength
+  if (armorType === 'LIGHT') {
+    if (str <= 6) return 4
+    if (str <= 9) return 3
+    return 2
+  } else if (armorType === 'MEDIUM') {
+    if (str <= 9) return 4
+    if (str <= 12) return 3
+    return 2
+  } else if (armorType === 'HEAVY') {
+    if (str <= 12) return 4
+    if (str <= 15) return 3
+    return 2
+  }
+
+  return 2 // Default fallback
+})
+
+const dodgeCost = computed(() => {
+  const cost = calculateDodgeCost.value
+  return `${cost} AP`
+})
+
+// Calculate dodge distance based on armor equipped
+const calculateDodgeDistance = computed(() => {
+  // If manual override is set, use it
+  if (playerStore.DodgeDistanceOverride !== null) {
+    return playerStore.DodgeDistanceOverride
+  }
+
+  const equippedArmor = playerStore.Equipment.Armor
+
+  // No armor - base 10 ft, with armor - base 5 ft
+  // Feats and weapon proficiencies can override this via DodgeDistanceOverride
+  return equippedArmor ? 5 : 10
+})
+
+const dodgeDistance = computed(() => {
+  const distance = calculateDodgeDistance.value
+  return `${distance} ft`
+})
+
+// Calculate item usage cost based on Dexterity
+const calculateItemUsageCost = computed(() => {
+  // If manual override is set, use it
+  if (playerStore.ItemUsageCostOverride !== null) {
+    return playerStore.ItemUsageCostOverride
+  }
+
   const dex = playerStore.CharacterStats.Stats.Dexterity
-  if (dex < 10) return '4AP'
-  if (dex < 18) return '3AP'
-  return '2AP'
+  if (dex < 10) return 4
+  if (dex < 18) return 3
+  return 2
 })
 
-const jumpHorizontal = computed(()=> {
-  return playerStore.CharacterStats.Stats.Strength / 2 + ' ft'
+// Jump calculations (without running start)
+const calculateJumpHorizontal = computed(() => {
+  // If manual override is set, use it
+  if (playerStore.JumpHorizontalOverride !== null) {
+    return playerStore.JumpHorizontalOverride
+  }
+  // Without running start = STR / 2 in feet
+  return playerStore.CharacterStats.Stats.Strength / 2
 })
 
-const jumpVertical = computed(()=> {
-  return playerStore.CharacterStats.Stats.Strength / 4 + ' ft'
+const calculateJumpVertical = computed(() => {
+  // If manual override is set, use it
+  if (playerStore.JumpVerticalOverride !== null) {
+    return playerStore.JumpVerticalOverride
+  }
+  // Without running start = STR / 4 in feet
+  return playerStore.CharacterStats.Stats.Strength / 4
 })
 
-const equipLoad = computed(()=> {
+// Running jump calculations (with 10-foot running start)
+const calculateRunningJumpHorizontal = computed(() => {
+  // If manual override is set, use it
+  if (playerStore.RunningJumpHorizontalOverride !== null) {
+    return playerStore.RunningJumpHorizontalOverride
+  }
+  // With running start = STR stat in feet
+  return playerStore.CharacterStats.Stats.Strength
+})
+
+const calculateRunningJumpVertical = computed(() => {
+  // If manual override is set, use it
+  if (playerStore.RunningJumpVerticalOverride !== null) {
+    return playerStore.RunningJumpVerticalOverride
+  }
+  // With running start = STR / 2 in feet
+  return playerStore.CharacterStats.Stats.Strength / 2
+})
+
+// Max Equip Load calculation
+const calculateMaxEquipLoad = computed(() => {
+  // If manual override is set, use it
+  if (playerStore.MaxEquipLoadOverride !== null) {
+    return playerStore.MaxEquipLoadOverride
+  }
+  // Formula: ((STR + END) / 2) * 15
   return ((playerStore.CharacterStats.Stats.Strength + playerStore.CharacterStats.Stats.Endurance) / 2) * 15
 })
 </script>
 
 <style scoped>
+.content-area-wrapper {
+  display: flex;
+  width: 100%;
+  height: calc(100vh - 190px);
+  gap: var(--padding-lg); /* Responsive: 1.48vh (~16px at 1080p) */
+}
+
+.content-panel {
+  position: relative;
+  width: 50%;
+  background: var(--color-bg-secondary);
+  border: var(--border-width-medium) solid var(--color-border-primary);
+  border-radius: var(--border-radius-md);
+  padding: var(--padding-lg);
+  overflow-y: auto;
+  box-shadow: var(--shadow-panel);
+}
+
+.panel-title {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-accent-gold-bright);
+  text-align: center;
+  margin-bottom: var(--padding-lg);
+  padding-bottom: var(--padding-sm);
+  border-bottom: var(--border-width-medium) solid var(--color-border-primary);
+  letter-spacing: 0.05em;
+}
+
+/* Custom scrollbar for content panels */
+.content-panel {
+  scrollbar-width: thin;
+  scrollbar-color: #ffd900b0 rgba(0, 0, 0, 0.3);
+}
+
+.content-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.content-panel::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+.content-panel::-webkit-scrollbar-thumb {
+  background: var(--color-gold-primary);
+  border-radius: 4px;
+}
+
+.content-panel::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gold-primary);
+}
+
+/* Physical Description Textarea */
+.physical-description-textarea {
+  width: 100%;
+  padding: var(--padding-md);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  border: var(--border-width-medium) solid var(--color-accent-gold-dim);
+  border-radius: var(--border-radius-md);
+  resize: none;
+  min-height: 7.41vh;
+  overflow-y: auto;
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-relaxed);
+  outline: none;
+  transition: var(--transition-hover);
+}
+
+.physical-description-textarea::placeholder {
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}
+
+.physical-description-textarea:focus {
+  border-color: var(--color-accent-gold-bright);
+  box-shadow: var(--shadow-gold-medium);
+}
+
+/* Stat containers - 20% wider than default max-w-xs (320px -> 384px equivalent) */
+.stat-container {
+  max-width: 95%; /* 20% increase from standard small container, responsive to parent */
+}
+
+/* Calculated Attributes - Static displays */
+.calculated-attribute-static {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 0.25rem 0.5rem;
+  background: var(--color-bg-tertiary);
+  border: var(--border-width-thin) solid var(--color-border-secondary);
+  border-radius: var(--border-radius-sm);
+  transition: var(--transition-hover);
+}
+
+.calculated-attribute-static:hover {
+  border-color: var(--color-border-primary);
+  box-shadow: var(--shadow-gold-soft);
+}
+
+.attribute-name-static {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  margin-right: 0.5rem;
+}
+
+.attribute-value-static {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+/* Section headings and text */
+.section-heading {
+  padding-bottom: var(--padding-md);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  text-align: center;
+}
+
+.section-subtitle {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-bold);
+  margin-bottom: var(--padding-sm);
+}
+
+.character-count {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  text-align: right;
+  margin-top: 0.25rem;
+}
+
+/* Responsive breakpoint */
+@media (max-width: 1279px) {
+  .content-area-wrapper {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .content-panel {
+    width: 100%;
+    min-height: 50vh;
+  }
+}
 </style>

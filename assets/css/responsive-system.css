@@ -1,0 +1,911 @@
+/**
+ * SD20 App - Responsive Design System
+ *
+ * This file contains all responsive sizing values using relative units.
+ * To enable: Import in nuxt.config.ts
+ * To disable: Comment out import to revert to fixed px values
+ *
+ * Base viewport: 1920x1080 (standard desktop)
+ * All values scale proportionally to viewport size
+ */
+
+:root {
+  /* ========================================
+     COLOR PALETTE (from design-system.css)
+     ======================================== */
+
+  /* Resource Bars - HP (Health) */
+  --color-hp: #770002;
+  --color-hp-gradient-start: #550001;
+  --color-hp-gradient-end: #990003;
+
+  /* Resource Bars - FP (Focus Points) */
+  --color-fp: #245974;
+  --color-fp-gradient-start: #1a3f54;
+  --color-fp-gradient-end: #2e7394;
+
+  /* Resource Bars - AP (Action Points) */
+  --color-ap: #3cb371;
+  --color-ap-gradient-start: #2d864f;
+  --color-ap-gradient-end: #4dd894;
+
+  /* Resource Bars - Temp HP */
+  --color-temp-hp: #f4c430;
+  --color-temp-hp-gradient-end: #ffdf6b;
+
+  /* UI State Colors */
+  --color-primary: #3cb371;
+  --color-warning: #770002;
+  --color-info: #ffd700;
+  --color-success: #3cb371;
+  --color-danger: #770002;
+
+  /* Background - Gradient Stops */
+  --bg-page-top: #0a0a0a;
+  --bg-page-mid-1: #131313;
+  --bg-page-mid-2: #1f1f1f;
+  --bg-page-bottom: #2B2B2B;
+
+  /* Background - Panels */
+  --bg-panel-primary: rgba(0, 0, 0, 0.5);
+  --bg-panel-secondary: rgba(43, 43, 43, 0.3);
+  --bg-panel-border: rgba(255, 255, 255, 0.2);
+
+  /* Text Colors */
+  --text-primary: #FFFFFF;
+  --text-secondary: #CCCCCC;
+  --text-muted: #888888;
+  --text-accent: #FFD700;
+  --text-disabled: #555555;
+
+  /* Shadows */
+  --shadow-panel: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-button: 0 2px 4px rgba(0, 0, 0, 0.3);
+  --shadow-vignette: inset 0 0 8px rgba(0, 0, 0, 0.8);
+  --shadow-focus: 0 0 8px rgba(60, 179, 113, 0.6);
+  --shadow-text: 0 1px 3px rgba(0, 0, 0, 0.9);
+
+  /* Resource Bar Glows */
+  --shadow-hp-glow: 0 0 12px rgba(119, 0, 2, 0.4);
+  --shadow-fp-glow: 0 0 12px rgba(36, 89, 116, 0.4);
+  --shadow-ap-glow: 0 0 12px rgba(60, 179, 113, 0.4);
+  --shadow-temp-hp-glow: 0 0 12px rgba(255, 215, 0, 0.4);
+
+  /* Transitions */
+  --transition-fast: 0.2s ease;
+  --transition-normal: 0.3s ease;
+  --transition-slow: 0.4s ease;
+
+  /* ========================================
+     LAYOUT DIMENSIONS
+     ======================================== */
+
+  /* Header sections (viewport-based) */
+  --header-height: 19.91vh; /* ~215px at 1080p */
+  --header-player-icon-width: 13%; /* Player icon section */
+  --header-character-info-width: 62%; /* Character info + bars */
+  --header-calculator-width: 25%; /* Damage calculator + statuses */
+
+  /* Tab navigation */
+  --tab-navigation-height: 6.02vh; /* ~65px at 1080p */
+  --tab-count: 7;
+  --tab-width: calc(100% / var(--tab-count));
+
+  /* Content area */
+  --content-height: calc(100vh - var(--header-height) - var(--tab-navigation-height));
+  --content-panel-width: 50%; /* Two-column layout */
+
+  /* ========================================
+     COMPONENT SIZING (responsive)
+     ======================================== */
+
+  /* Character selector */
+  --character-dropdown-max-width: 8.33vw; /* ~160px at 1920px */
+
+  /* Character info fields */
+  --info-label-font-size: 0.68vw; /* ~13px at 1920px - proportional scaling */
+  --info-label-smaller-font-size: 0.625vw; /* ~12px at 1920px - proportional scaling */
+  --info-input-font-size: 0.73vw; /* ~14px at 1920px - proportional scaling */
+  --info-input-max-width: 8.29vw; /* ~140px at 1920px */
+
+  /* Resource bars (HP/FP/AP) */
+  --resource-bar-height: 1.67vh; /* ~18px at 1080p */
+  --resource-bar-gap: 0.19vh; /* ~2px at 1080p */
+  --resource-label-font-size: 0.68vw; /* ~13px at 1920px - proportional scaling */
+  --resource-value-font-size: 0.73vw; /* ~14px at 1920px - proportional scaling */
+  --resource-input-font-size: 0.78vw; /* ~15px at 1920px - proportional scaling */
+
+  /* Damage calculator */
+  --calculator-section-max-width: 26.04vw; /* ~500px at 1920px */
+  --calculator-section-min-width: 20.83vw; /* ~400px at 1920px */
+  --calculator-input-width: 1.85vw; /* ~32px at 1920px */
+  --calculator-input-font-size: 0.68vw; /* ~13px at 1920px - proportional scaling */
+  --calculator-result-font-size: 0.625vw; /* ~12px at 1920px - proportional scaling */
+  --calculator-label-font-size: 0.57vw; /* ~11px at 1920px - proportional scaling */
+
+  /* Status options */
+  --status-icon-size: 2.08vw; /* ~40px at 1920px */
+  --status-font-size: 0.625vw; /* ~12px at 1920px - proportional scaling */
+
+  /* Toggle switches */
+  --toggle-width: 3.13vw; /* ~60px at 1920px */
+  --toggle-height: 1.3vh; /* ~28px at 1080p */
+  --toggle-font-size: 0.625vw; /* ~12px at 1920px - proportional scaling */
+
+  /* ========================================
+     SPACING SYSTEM (responsive)
+     ======================================== */
+
+  /* Gaps and padding (em-based for scalability) */
+  --gap-xs: 0.25em; /* Scales with font size */
+  --gap-sm: 0.5em;
+  --gap-md: 0.75em;
+  --gap-lg: 1em;
+  --gap-xl: 1.5em;
+
+  /* Fixed spacing (when needed) */
+  --padding-xs: 0.37vh; /* ~4px at 1080p */
+  --padding-sm: 0.74vh; /* ~8px at 1080p */
+  --padding-md: 1.11vh; /* ~12px at 1080p */
+  --padding-lg: 1.48vh; /* ~16px at 1080p */
+  --padding-xl: 2.22vh; /* ~24px at 1080p */
+
+  /* ========================================
+     TYPOGRAPHY (fluid scaling)
+     ======================================== */
+
+  /* Base font sizes - pure vw for proportional scaling */
+  --font-size-h1: 1.67vw; /* ~32px at 1920px - proportional scaling */
+  --font-size-h2: 1.25vw; /* ~24px at 1920px - proportional scaling */
+  --font-size-h3: 1.04vw; /* ~20px at 1920px - proportional scaling */
+  --font-size-body: 0.83vw; /* ~16px at 1920px - proportional scaling */
+  --font-size-small: 0.73vw; /* ~14px at 1920px - proportional scaling */
+  --font-size-tiny: 0.625vw; /* ~12px at 1920px - proportional scaling */
+
+  /* Line heights (unitless for scalability) */
+  --line-height-heading: 1.2;
+  --line-height-body: 1.6;
+  --line-height-compact: 1.4;
+
+  /* ========================================
+     BUTTONS (responsive)
+     ======================================== */
+
+  /* Standard buttons */
+  --button-height: 3.33vh; /* ~36px at 1080p */
+  --button-height-small: 2.59vh; /* ~28px at 1080p */
+  --button-padding-horizontal: 0.83vw; /* ~16px at 1920px */
+  --button-padding-vertical: 0.74vh; /* ~8px at 1080p */
+  --button-font-size: 0.73vw; /* ~14px at 1920px - proportional scaling */
+  --button-font-size-small: 0.625vw; /* ~12px at 1920px - proportional scaling */
+
+  /* Action buttons (+ / -) */
+  --action-button-size: 1.56vw; /* ~30px at 1920px */
+  --action-button-font-size: 0.83vw; /* ~16px at 1920px - proportional scaling */
+
+  /* ========================================
+     ICONS (responsive)
+     ======================================== */
+
+  --icon-size-large: 1.67vw; /* ~32px at 1920px */
+  --icon-size-standard: 1.25vw; /* ~24px at 1920px */
+  --icon-size-small: 0.83vw; /* ~16px at 1920px */
+
+  /* Tab icons */
+  --tab-icon-size: 1.56vw; /* ~30px at 1920px */
+
+  /* ========================================
+     BORDERS & RADIUS (responsive)
+     ======================================== */
+
+  --border-radius-sm: 0.21vw; /* ~4px at 1920px */
+  --border-radius-md: 0.31vw; /* ~6px at 1920px */
+  --border-radius-lg: 0.42vw; /* ~8px at 1920px */
+
+  --border-width-thin: 1px; /* Keep at 1px for sharpness */
+  --border-width-thick: 2px;
+  --border-width-accent: 3px;
+
+  /* ========================================
+     MODALS & OVERLAYS
+     ======================================== */
+
+  --modal-max-width: 41.67vw; /* ~800px at 1920px */
+  --modal-padding: 1.67vw; /* ~32px at 1920px */
+
+  /* ========================================
+     SCROLLBARS
+     ======================================== */
+
+  --scrollbar-width: 0.42vw; /* ~8px at 1920px */
+  --scrollbar-thumb-radius: 0.21vw; /* ~4px at 1920px */
+
+  /* Scroll indicator (custom) */
+  --scroll-indicator-size: 3vw; /* Dynamic size */
+  --scroll-indicator-min-size: 1.25vw; /* ~24px at 1920px */
+  --scroll-indicator-max-size: 2.5vw; /* ~48px at 1920px */
+
+  /* ========================================
+     RESPONSIVE BREAKPOINTS
+     ======================================== */
+
+  /* These are used in @media queries */
+  --breakpoint-desktop-large: 1920px;
+  --breakpoint-desktop-standard: 1280px;
+  --breakpoint-desktop-small: 1024px;
+  --breakpoint-tablet: 768px;
+  --breakpoint-mobile: 480px;
+}
+
+/* ========================================
+   RESPONSIVE ADJUSTMENTS BY SCREEN SIZE
+   ======================================== */
+
+/* Large desktop (≥1920px) - Base scale */
+@media (min-width: 1920px) {
+  :root {
+    /* Prevent scaling beyond 1920px base */
+    --header-height: 19.91vh;
+    --tab-navigation-height: 6.02vh;
+  }
+}
+
+/* Standard desktop (1280px - 1919px) */
+@media (max-width: 1919px) and (min-width: 1280px) {
+  :root {
+    /* Maintain proportional scaling */
+    --calculator-section-max-width: 28vw; /* Slightly wider */
+    --info-input-max-width: 8vw;
+  }
+}
+
+/* Small desktop (1024px - 1279px) */
+@media (max-width: 1279px) {
+  :root {
+    /* Adjust for smaller screens */
+    --header-character-info-width: 55%;
+    --header-calculator-width: 32%;
+    --calculator-section-max-width: 100%; /* Allow full width */
+    --content-panel-width: 100%; /* Stack panels vertically */
+  }
+}
+
+/* Tablet (768px - 1023px) */
+@media (max-width: 1023px) {
+  :root {
+    /* Mobile-friendly adjustments */
+    --header-height: 25vh; /* More vertical space */
+    --tab-navigation-height: 8vh;
+    --tab-icon-size: 2vw;
+    --font-size-body: clamp(16px, 2vw, 18px); /* Larger for readability */
+  }
+}
+
+/* Mobile (<768px) */
+@media (max-width: 767px) {
+  :root {
+    /* Full mobile layout */
+    --header-height: 30vh;
+    --tab-navigation-height: 10vh;
+    --content-panel-width: 100%;
+    --modal-max-width: 90vw;
+  }
+}
+
+/* ========================================
+   UTILITY CLASSES (responsive versions)
+   ======================================== */
+
+.responsive-width-full {
+  width: 100%;
+}
+
+.responsive-height-full {
+  height: 100%;
+}
+
+.responsive-flex-1 {
+  flex: 1 1 auto;
+}
+
+.responsive-flex-half {
+  flex: 0 0 50%;
+}
+
+.responsive-gap-sm {
+  gap: var(--gap-sm);
+}
+
+.responsive-gap-md {
+  gap: var(--gap-md);
+}
+
+.responsive-gap-lg {
+  gap: var(--gap-lg);
+}
+
+/* ========================================
+   COMPONENT-SPECIFIC RESPONSIVE CLASSES
+   ======================================== */
+
+/* Apply to TopBar sections */
+.responsive-header-section {
+  padding: var(--padding-sm);
+}
+
+/* Apply to tab navigation */
+.responsive-tab {
+  flex: 1 1 var(--tab-width);
+  height: var(--tab-navigation-height);
+}
+
+/* Apply to content panels */
+.responsive-content-panel {
+  width: var(--content-panel-width);
+  height: var(--content-height);
+}
+
+/* Apply to buttons */
+.responsive-button {
+  height: var(--button-height);
+  padding: var(--button-padding-vertical) var(--button-padding-horizontal);
+  font-size: var(--button-font-size);
+}
+
+.responsive-button-small {
+  height: var(--button-height-small);
+  font-size: var(--button-font-size-small);
+}
+
+/* ========================================
+   NOTES FOR IMPLEMENTATION
+   ======================================== */
+
+/**
+ * HOW TO USE THIS FILE:
+ *
+ * 1. Import in nuxt.config.ts:
+ *    css: [
+ *      '@/assets/css/design-system.css',
+ *      '@/assets/css/responsive-system.css', // Add this
+ *      '@/assets/css/main.css'
+ *    ]
+ *
+ * 2. In components, replace fixed px with CSS variables:
+ *    OLD: height: 65px;
+ *    NEW: height: var(--tab-navigation-height);
+ *
+ * 3. For fonts, use clamp() variables:
+ *    OLD: font-size: 14px;
+ *    NEW: font-size: var(--font-size-body);
+ *
+ * 4. For spacing, use em/rem or CSS variables:
+ *    OLD: gap: 12px;
+ *    NEW: gap: var(--gap-md);
+ *
+ * 5. TO REVERT: Comment out the import in nuxt.config.ts
+ *
+ * CONVERSION PRIORITY:
+ * - TopBar.vue (header layout)
+ * - TabOptions.vue / Tab.vue (navigation)
+ * - ActiveCombatValueTracker.vue (resource bars)
+ * - DamageCalculator.vue (calculator section)
+ * - CharacterTab.vue (content panels)
+ * - All modal/overlay components
+ */
+
+/* ========================================
+   GLOBAL STYLES
+   ======================================== */
+
+body,
+html,
+#__nuxt {
+  background: linear-gradient(
+    to bottom,
+    var(--bg-page-top) 0%,
+    var(--bg-page-mid-1) 30%,
+    var(--bg-page-mid-2) 70%,
+    var(--bg-page-bottom) 100%
+  );
+  background-attachment: fixed;
+  min-height: 100vh;
+  font-family: 'Cardo', Georgia, serif;
+  color: var(--text-primary);
+}
+
+/* ========================================
+   TYPOGRAPHY
+   ======================================== */
+
+h1, h2, h3, h4, h5, h6 {
+  letter-spacing: 0.05em;
+  color: var(--text-primary);
+}
+
+.character-name {
+  font-family: 'Cinzel', 'Cardo', serif;
+  font-weight: 600;
+}
+
+h1 {
+  font-size: var(--font-size-h1);
+  font-weight: 700;
+  line-height: var(--line-height-heading);
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  font-weight: 600;
+  line-height: var(--line-height-heading);
+}
+
+h3 {
+  font-size: var(--font-size-h3);
+  font-weight: 600;
+  line-height: var(--line-height-heading);
+}
+
+.accent-value {
+  color: var(--text-accent);
+  font-weight: 600;
+}
+
+/* ========================================
+   BUTTON STYLES
+   ======================================== */
+
+.btn-primary {
+  background: linear-gradient(135deg,
+    var(--color-ap-gradient-start) 0%,
+    var(--color-primary) 50%,
+    var(--color-ap-gradient-end) 100%
+  );
+  color: var(--text-primary);
+  border: 1px solid #2d864f;
+  border-radius: var(--border-radius-md);
+  padding: var(--button-padding-vertical) var(--button-padding-horizontal);
+  height: var(--button-height);
+  box-shadow: var(--shadow-button);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+  transform: translateY(0);
+}
+
+.btn-warning {
+  background: linear-gradient(135deg,
+    var(--color-hp-gradient-start) 0%,
+    var(--color-warning) 50%,
+    var(--color-hp-gradient-end) 100%
+  );
+  color: var(--text-primary);
+  border: 1px solid #550001;
+  border-radius: var(--border-radius-md);
+  padding: var(--button-padding-vertical) var(--button-padding-horizontal);
+  height: var(--button-height);
+  box-shadow: var(--shadow-button);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  font-weight: 600;
+}
+
+.btn-warning:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-warning:active {
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+  transform: translateY(0);
+}
+
+.btn-neutral {
+  background: linear-gradient(135deg,
+    var(--color-fp-gradient-start) 0%,
+    var(--color-info) 50%,
+    var(--color-fp-gradient-end) 100%
+  );
+  color: var(--text-primary);
+  border: 1px solid #143954;
+  border-radius: var(--border-radius-md);
+  padding: var(--button-padding-vertical) var(--button-padding-horizontal);
+  height: var(--button-height);
+  box-shadow: var(--shadow-button);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  font-weight: 600;
+}
+
+.btn-neutral:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-primary-small,
+.btn-warning-small,
+.btn-neutral-small {
+  padding: 4px 8px;
+  height: var(--button-height-small);
+  font-size: var(--button-font-size-small);
+  border-radius: var(--border-radius-sm);
+}
+
+.btn-primary-small {
+  background: linear-gradient(135deg,
+    var(--color-ap-gradient-start) 0%,
+    var(--color-primary) 50%,
+    var(--color-ap-gradient-end) 100%
+  );
+  color: var(--text-primary);
+  border: 1px solid #2d864f;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  font-weight: 600;
+}
+
+.btn-warning-small {
+  background: linear-gradient(135deg,
+    var(--color-hp-gradient-start) 0%,
+    var(--color-warning) 50%,
+    var(--color-hp-gradient-end) 100%
+  );
+  color: var(--text-primary);
+  border: 1px solid #550001;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  font-weight: 600;
+}
+
+.btn-neutral-small {
+  background: linear-gradient(135deg,
+    var(--color-fp-gradient-start) 0%,
+    var(--color-info) 50%,
+    var(--color-fp-gradient-end) 100%
+  );
+  color: var(--text-primary);
+  border: 1px solid #143954;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  font-weight: 600;
+}
+
+.btn-primary-small:hover,
+.btn-warning-small:hover,
+.btn-neutral-small:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.btn-disabled,
+button:disabled {
+  background: #333333;
+  color: var(--text-disabled);
+  border: 1px solid #222222;
+  cursor: not-allowed;
+  opacity: 0.5;
+  filter: none !important;
+  transform: none !important;
+}
+
+/* ========================================
+   INPUT STYLES
+   ======================================== */
+
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="password"],
+textarea,
+select {
+  background: rgba(255, 255, 255, 0.9);
+  color: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: var(--border-radius-sm);
+  padding: 6px 10px;
+  font-size: var(--font-size-body);
+  transition: var(--transition-normal);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border: 2px solid var(--color-primary);
+  box-shadow: var(--shadow-focus);
+}
+
+input:disabled,
+textarea:disabled,
+select:disabled {
+  background: rgba(200, 200, 200, 0.3);
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+/* ========================================
+   PANEL STYLES
+   ======================================== */
+
+.panel-primary {
+  background: var(--bg-panel-primary);
+  border: 1px solid var(--bg-panel-border);
+  border-radius: var(--border-radius-lg);
+  padding: var(--padding-md);
+  box-shadow: var(--shadow-panel);
+}
+
+.panel-secondary {
+  background: var(--bg-panel-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--border-radius-md);
+  padding: 12px;
+}
+
+/* ========================================
+   UTILITY CLASSES
+   ======================================== */
+
+.text-sm {
+  font-size: var(--font-size-small) !important;
+}
+
+.text-xs {
+  font-size: var(--font-size-tiny) !important;
+}
+
+.text-lg {
+  font-size: var(--font-size-h3) !important; /* ~20px at 1920px */
+}
+
+.text-base {
+  font-size: var(--font-size-body) !important;
+}
+
+.text-xl {
+  font-size: 1.35vw !important; /* ~26px at 1920px */
+}
+
+.text-2xl {
+  font-size: 1.56vw !important; /* ~30px at 1920px */
+}
+
+.text-3xl {
+  font-size: 1.88vw !important; /* ~36px at 1920px */
+}
+
+/* ========================================
+   TAILWIND RESPONSIVE OVERRIDES
+   Override Tailwind's fixed px classes with responsive units
+   ======================================== */
+
+/* Height overrides (h-*) */
+.h-3 { height: 1.11vh !important; } /* ~12px at 1080p */
+.h-4 { height: 1.48vh !important; } /* ~16px at 1080p */
+.h-5 { height: 1.85vh !important; } /* ~20px at 1080p */
+.h-6 { height: 2.22vh !important; } /* ~24px at 1080p */
+.h-7 { height: 2.59vh !important; } /* ~28px at 1080p */
+.h-8 { height: 2.96vh !important; } /* ~32px at 1080p */
+.h-10 { height: 3.70vh !important; } /* ~40px at 1080p */
+.h-12 { height: 4.44vh !important; } /* ~48px at 1080p */
+.h-16 { height: 5.93vh !important; } /* ~64px at 1080p */
+.h-20 { height: 7.41vh !important; } /* ~80px at 1080p */
+
+/* Width overrides (w-*) */
+.w-3 { width: 0.63vw !important; } /* ~12px at 1920px */
+.w-4 { width: 0.83vw !important; } /* ~16px at 1920px */
+.w-5 { width: 1.04vw !important; } /* ~20px at 1920px */
+.w-6 { width: 1.25vw !important; } /* ~24px at 1920px */
+.w-7 { width: 1.46vw !important; } /* ~28px at 1920px */
+.w-8 { width: 1.67vw !important; } /* ~32px at 1920px */
+.w-10 { width: 2.08vw !important; } /* ~40px at 1920px */
+.w-12 { width: 2.50vw !important; } /* ~48px at 1920px */
+.w-16 { width: 3.33vw !important; } /* ~64px at 1920px */
+.w-20 { width: 4.17vw !important; } /* ~80px at 1920px */
+.w-24 { width: 5.00vw !important; } /* ~96px at 1920px */
+.w-32 { width: 6.67vw !important; } /* ~128px at 1920px */
+.w-40 { width: 8.33vw !important; } /* ~160px at 1920px */
+.w-28 { width: 5.83vw !important; } /* ~112px at 1920px */
+.w-48 { width: 10.00vw !important; } /* ~192px at 1920px */
+.w-64 { width: 13.33vw !important; } /* ~256px at 1920px */
+
+/* Height overrides for larger sizes */
+.h-28 { height: 10.37vh !important; } /* ~112px at 1080p */
+
+/* Min-height overrides (min-h-*) */
+.min-h-screen { min-height: 100vh !important; }
+
+/* Max-height overrides (max-h-*) */
+.max-h-screen { max-height: 100vh !important; }
+
+/* Gap overrides (gap-*) */
+.gap-1 { gap: 0.21vw !important; } /* ~4px at 1920px */
+.gap-2 { gap: 0.42vw !important; } /* ~8px at 1920px */
+.gap-3 { gap: 0.63vw !important; } /* ~12px at 1920px */
+.gap-4 { gap: 0.83vw !important; } /* ~16px at 1920px */
+.gap-6 { gap: 1.25vw !important; } /* ~24px at 1920px */
+.gap-8 { gap: 1.67vw !important; } /* ~32px at 1920px */
+
+/* Padding overrides (p-*, px-*, py-*, pt-*, pr-*, pb-*, pl-*) */
+.p-0 { padding: 0 !important; }
+.p-1 { padding: 0.21vw !important; } /* ~4px at 1920px */
+.p-2 { padding: 0.42vw !important; } /* ~8px at 1920px */
+.p-3 { padding: 0.63vw !important; } /* ~12px at 1920px */
+.p-4 { padding: 0.83vw !important; } /* ~16px at 1920px */
+.p-5 { padding: 1.04vw !important; } /* ~20px at 1920px */
+.p-6 { padding: 1.25vw !important; } /* ~24px at 1920px */
+.p-8 { padding: 1.67vw !important; } /* ~32px at 1920px */
+
+.px-0 { padding-left: 0 !important; padding-right: 0 !important; }
+.px-1 { padding-left: 0.21vw !important; padding-right: 0.21vw !important; } /* ~4px at 1920px */
+.px-2 { padding-left: 0.42vw !important; padding-right: 0.42vw !important; } /* ~8px at 1920px */
+.px-3 { padding-left: 0.63vw !important; padding-right: 0.63vw !important; } /* ~12px at 1920px */
+.px-4 { padding-left: 0.83vw !important; padding-right: 0.83vw !important; } /* ~16px at 1920px */
+.px-6 { padding-left: 1.25vw !important; padding-right: 1.25vw !important; } /* ~24px at 1920px */
+.px-8 { padding-left: 1.67vw !important; padding-right: 1.67vw !important; } /* ~32px at 1920px */
+
+.py-0 { padding-top: 0 !important; padding-bottom: 0 !important; }
+.py-1 { padding-top: 0.19vh !important; padding-bottom: 0.19vh !important; } /* ~2px at 1080p */
+.py-2 { padding-top: 0.37vh !important; padding-bottom: 0.37vh !important; } /* ~4px at 1080p */
+.py-3 { padding-top: 0.56vh !important; padding-bottom: 0.56vh !important; } /* ~6px at 1080p */
+.py-4 { padding-top: 0.74vh !important; padding-bottom: 0.74vh !important; } /* ~8px at 1080p */
+.py-6 { padding-top: 1.11vh !important; padding-bottom: 1.11vh !important; } /* ~12px at 1080p */
+.py-8 { padding-top: 1.48vh !important; padding-bottom: 1.48vh !important; } /* ~16px at 1080p */
+
+.pt-0 { padding-top: 0 !important; }
+.pt-1 { padding-top: 0.19vh !important; } /* ~2px at 1080p */
+.pt-2 { padding-top: 0.37vh !important; } /* ~4px at 1080p */
+.pt-3 { padding-top: 0.56vh !important; } /* ~6px at 1080p */
+.pt-4 { padding-top: 0.74vh !important; } /* ~8px at 1080p */
+.pt-6 { padding-top: 1.11vh !important; } /* ~12px at 1080p */
+.pt-8 { padding-top: 1.48vh !important; } /* ~16px at 1080p */
+
+.pr-0 { padding-right: 0 !important; }
+.pr-1 { padding-right: 0.21vw !important; } /* ~4px at 1920px */
+.pr-2 { padding-right: 0.42vw !important; } /* ~8px at 1920px */
+.pr-3 { padding-right: 0.63vw !important; } /* ~12px at 1920px */
+.pr-4 { padding-right: 0.83vw !important; } /* ~16px at 1920px */
+.pr-6 { padding-right: 1.25vw !important; } /* ~24px at 1920px */
+.pr-8 { padding-right: 1.67vw !important; } /* ~32px at 1920px */
+
+.pb-0 { padding-bottom: 0 !important; }
+.pb-1 { padding-bottom: 0.19vh !important; } /* ~2px at 1080p */
+.pb-2 { padding-bottom: 0.37vh !important; } /* ~4px at 1080p */
+.pb-3 { padding-bottom: 0.56vh !important; } /* ~6px at 1080p */
+.pb-4 { padding-bottom: 0.74vh !important; } /* ~8px at 1080p */
+.pb-6 { padding-bottom: 1.11vh !important; } /* ~12px at 1080p */
+.pb-8 { padding-bottom: 1.48vh !important; } /* ~16px at 1080p */
+
+.pl-0 { padding-left: 0 !important; }
+.pl-1 { padding-left: 0.21vw !important; } /* ~4px at 1920px */
+.pl-2 { padding-left: 0.42vw !important; } /* ~8px at 1920px */
+.pl-3 { padding-left: 0.63vw !important; } /* ~12px at 1920px */
+.pl-4 { padding-left: 0.83vw !important; } /* ~16px at 1920px */
+.pl-6 { padding-left: 1.25vw !important; } /* ~24px at 1920px */
+.pl-8 { padding-left: 1.67vw !important; } /* ~32px at 1920px */
+
+/* Margin overrides (m-*, mx-*, my-*, mt-*, mr-*, mb-*, ml-*) */
+.m-0 { margin: 0 !important; }
+.m-1 { margin: 0.21vw !important; } /* ~4px at 1920px */
+.m-2 { margin: 0.42vw !important; } /* ~8px at 1920px */
+.m-3 { margin: 0.63vw !important; } /* ~12px at 1920px */
+.m-4 { margin: 0.83vw !important; } /* ~16px at 1920px */
+.m-6 { margin: 1.25vw !important; } /* ~24px at 1920px */
+.m-8 { margin: 1.67vw !important; } /* ~32px at 1920px */
+
+.mx-0 { margin-left: 0 !important; margin-right: 0 !important; }
+.mx-1 { margin-left: 0.21vw !important; margin-right: 0.21vw !important; } /* ~4px at 1920px */
+.mx-2 { margin-left: 0.42vw !important; margin-right: 0.42vw !important; } /* ~8px at 1920px */
+.mx-3 { margin-left: 0.63vw !important; margin-right: 0.63vw !important; } /* ~12px at 1920px */
+.mx-4 { margin-left: 0.83vw !important; margin-right: 0.83vw !important; } /* ~16px at 1920px */
+.mx-6 { margin-left: 1.25vw !important; margin-right: 1.25vw !important; } /* ~24px at 1920px */
+.mx-8 { margin-left: 1.67vw !important; margin-right: 1.67vw !important; } /* ~32px at 1920px */
+.mx-auto { margin-left: auto !important; margin-right: auto !important; }
+
+.my-0 { margin-top: 0 !important; margin-bottom: 0 !important; }
+.my-1 { margin-top: 0.19vh !important; margin-bottom: 0.19vh !important; } /* ~2px at 1080p */
+.my-2 { margin-top: 0.37vh !important; margin-bottom: 0.37vh !important; } /* ~4px at 1080p */
+.my-3 { margin-top: 0.56vh !important; margin-bottom: 0.56vh !important; } /* ~6px at 1080p */
+.my-4 { margin-top: 0.74vh !important; margin-bottom: 0.74vh !important; } /* ~8px at 1080p */
+.my-6 { margin-top: 1.11vh !important; margin-bottom: 1.11vh !important; } /* ~12px at 1080p */
+.my-8 { margin-top: 1.48vh !important; margin-bottom: 1.48vh !important; } /* ~16px at 1080p */
+
+.mt-0 { margin-top: 0 !important; }
+.mt-1 { margin-top: 0.19vh !important; } /* ~2px at 1080p */
+.mt-2 { margin-top: 0.37vh !important; } /* ~4px at 1080p */
+.mt-3 { margin-top: 0.56vh !important; } /* ~6px at 1080p */
+.mt-4 { margin-top: 0.74vh !important; } /* ~8px at 1080p */
+.mt-6 { margin-top: 1.11vh !important; } /* ~12px at 1080p */
+.mt-8 { margin-top: 1.48vh !important; } /* ~16px at 1080p */
+
+.mr-0 { margin-right: 0 !important; }
+.mr-1 { margin-right: 0.21vw !important; } /* ~4px at 1920px */
+.mr-2 { margin-right: 0.42vw !important; } /* ~8px at 1920px */
+.mr-3 { margin-right: 0.63vw !important; } /* ~12px at 1920px */
+.mr-4 { margin-right: 0.83vw !important; } /* ~16px at 1920px */
+.mr-6 { margin-right: 1.25vw !important; } /* ~24px at 1920px */
+.mr-8 { margin-right: 1.67vw !important; } /* ~32px at 1920px */
+
+.mb-0 { margin-bottom: 0 !important; }
+.mb-1 { margin-bottom: 0.19vh !important; } /* ~2px at 1080p */
+.mb-2 { margin-bottom: 0.37vh !important; } /* ~4px at 1080p */
+.mb-3 { margin-bottom: 0.56vh !important; } /* ~6px at 1080p */
+.mb-4 { margin-bottom: 0.74vh !important; } /* ~8px at 1080p */
+.mb-6 { margin-bottom: 1.11vh !important; } /* ~12px at 1080p */
+.mb-8 { margin-bottom: 1.48vh !important; } /* ~16px at 1080p */
+
+.ml-0 { margin-left: 0 !important; }
+.ml-1 { margin-left: 0.21vw !important; } /* ~4px at 1920px */
+.ml-2 { margin-left: 0.42vw !important; } /* ~8px at 1920px */
+.ml-3 { margin-left: 0.63vw !important; } /* ~12px at 1920px */
+.ml-4 { margin-left: 0.83vw !important; } /* ~16px at 1920px */
+.ml-6 { margin-left: 1.25vw !important; } /* ~24px at 1920px */
+.ml-8 { margin-left: 1.67vw !important; } /* ~32px at 1920px */
+
+/* Negative margins */
+.-m-1 { margin: -0.21vw !important; }
+.-m-2 { margin: -0.42vw !important; }
+.-mt-1 { margin-top: -0.19vh !important; }
+.-mt-2 { margin-top: -0.37vh !important; }
+.-mr-1 { margin-right: -0.21vw !important; }
+.-mr-2 { margin-right: -0.42vw !important; }
+.-mb-1 { margin-bottom: -0.19vh !important; }
+.-mb-2 { margin-bottom: -0.37vh !important; }
+.-ml-1 { margin-left: -0.21vw !important; }
+.-ml-2 { margin-left: -0.42vw !important; }
+
+/* Space-between overrides (space-x-*, space-y-*) */
+.space-x-1 > :not([hidden]) ~ :not([hidden]) { margin-left: 0.21vw !important; } /* ~4px at 1920px */
+.space-x-2 > :not([hidden]) ~ :not([hidden]) { margin-left: 0.42vw !important; } /* ~8px at 1920px */
+.space-x-3 > :not([hidden]) ~ :not([hidden]) { margin-left: 0.63vw !important; } /* ~12px at 1920px */
+.space-x-4 > :not([hidden]) ~ :not([hidden]) { margin-left: 0.83vw !important; } /* ~16px at 1920px */
+.space-x-6 > :not([hidden]) ~ :not([hidden]) { margin-left: 1.25vw !important; } /* ~24px at 1920px */
+
+.space-y-1 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.19vh !important; } /* ~2px at 1080p */
+.space-y-2 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.37vh !important; } /* ~4px at 1080p */
+.space-y-3 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.56vh !important; } /* ~6px at 1080p */
+.space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.74vh !important; } /* ~8px at 1080p */
+.space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 1.11vh !important; } /* ~12px at 1080p */
+
+/* Border-radius overrides (rounded-*) */
+.rounded-none { border-radius: 0 !important; }
+.rounded-sm { border-radius: var(--border-radius-sm) !important; } /* ~4px at 1920px */
+.rounded { border-radius: var(--border-radius-md) !important; } /* ~6px at 1920px */
+.rounded-md { border-radius: var(--border-radius-md) !important; } /* ~6px at 1920px */
+.rounded-lg { border-radius: var(--border-radius-lg) !important; } /* ~8px at 1920px */
+.rounded-full { border-radius: 9999px !important; }
+
+/* ========================================
+   CUSTOM SCROLLBAR
+   ======================================== */
+
+::-webkit-scrollbar {
+  width: var(--scrollbar-width);
+  height: var(--scrollbar-width);
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: var(--border-radius-md);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-primary);
+  border-radius: var(--border-radius-md);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ap-gradient-end);
+}

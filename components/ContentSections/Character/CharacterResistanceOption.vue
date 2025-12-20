@@ -2,32 +2,38 @@
   <div class="flex justify-between items-center w-full rounded-sm bg-white text-charcoal overflow-hidden">
     <div class="flex h-full border-r border-black">
       <button
-        class="flex items-center justify-center bg-teal border-r text-white w-4"
+        class="resistance-decrease-btn"
         @click="decreasePlayerStat"
       >
         -
       </button>
 
       <button
-        class="flex items-center justify-center bg-teal text-white w-4"
+        class="resistance-increase-btn"
         @click="increasePlayerStat"
       >
         +
       </button>
     </div>
 
-    <div class="flex w-full justify-between items-center">
+    <div class="flex w-full justify-between items-center gap-1 mr-1">
       <span class="pl-2 pr-4 font-semibold">
         {{ name }}
       </span>
 
-      <input
-        v-model="stat"
-        type="number"
-        :min="min"
-        class="px-1 w-6 text-center text-charcoal bg-white"
-        @change="setAmt"
-      />
+      <div class="flex items-center gap-2 pr-3">
+        <input
+          v-model="stat"
+          type="number"
+          :min="min"
+          class="px-1 w-6 text-center text-charcoal bg-white"
+          @change="setAmt"
+        />
+        <FieldComment
+          :fieldKey="`${sType}_${identifier}`.toLowerCase()"
+          :fieldLabel="name"
+        />
+      </div>
     </div>
   </div>
 </template>
@@ -35,6 +41,7 @@
 <script setup lang="ts">
 import * as utils from '@/mixins/utils'
 import { usePlayerStore } from '@/store/player'
+import FieldComment from '~/components/UI/FieldComment.vue'
 
 const playerStore = usePlayerStore()
 
@@ -83,5 +90,69 @@ function updatePlayerValue(type?: string) {
 
   if (props.sType === 'resistance') (playerStore.UserInputValues.BonusResistances as any)[props.identifier] = stat.value
   else if (props.sType === 'status') (playerStore.UserInputValues.BonusStatuses as any)[props.identifier] = stat.value
+
+  playerStore.save()
 }
 </script>
+
+<style scoped>
+/* Container dark theme */
+.flex.justify-between.items-center.w-full.rounded-sm.bg-white {
+  background: var(--color-bg-tertiary) !important;
+  border: var(--border-width-thin) solid var(--color-border-primary);
+  color: var(--color-text-primary) !important;
+  transition: var(--transition-hover);
+}
+
+.flex.justify-between.items-center.w-full.rounded-sm.bg-white:hover {
+  border-color: var(--color-accent-gold);
+  box-shadow: var(--shadow-gold-soft);
+}
+
+/* Golden +/- buttons */
+.resistance-decrease-btn,
+.resistance-increase-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  background: var(--color-btn-primary-border);
+  border: none;
+  color: #ffffff;
+  font-weight: var(--font-weight-bold);
+  border-radius: 0;
+  transition: var(--transition-hover);
+  cursor: pointer;
+}
+
+.resistance-decrease-btn {
+  border-right: 1px solid rgba(0, 0, 0, 0.3);
+}
+
+.resistance-decrease-btn:hover,
+.resistance-increase-btn:hover {
+  background: var(--color-btn-primary-border);
+  color: #ffffff;
+  box-shadow: var(--shadow-gold-medium);
+}
+
+/* Wider input field for 2+ digit numbers */
+input[type="number"] {
+  width: 2.5rem !important;
+  min-width: 2.5rem !important;
+  background: var(--color-bg-secondary) !important;
+  color: var(--color-text-primary) !important;
+  border: var(--border-width-thin) solid var(--color-border-primary);
+  border-radius: var(--border-radius-sm);
+}
+
+/* Text contrast */
+span {
+  color: var(--color-text-primary) !important;
+}
+
+/* Border color fix */
+.border-black, .border-r {
+  border-color: var(--color-border-primary) !important;
+}
+</style>

@@ -1,3 +1,2095 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ===========================================
+   SD20 Design System - SoulsBorne Inspired
+   =========================================== */
+
+/* ============================================
+   STANDARDIZED COLOR SYSTEM
+   ============================================
+   All colors defined here for consistency.
+   Use these CSS variables ONLY - no hardcoded hex/rgba.
+   ============================================ */
+
+:root {
+  /* ========================================
+     RED SYSTEM - Based on HP Bar Red (#770002)
+     ======================================== */
+  --color-red-primary: #770002;              /* Base red - HP bar color */
+  --color-red-bright: #ff1a1d;               /* Brighter red for text readability on dark backgrounds */
+  --color-red-dim: #550001;                  /* Dimmer red for bright backgrounds */
+  --color-red-rgba-light: rgba(119, 0, 2, 0.3);
+  --color-red-rgba-medium: rgba(119, 0, 2, 0.5);
+  --color-red-rgba-strong: rgba(119, 0, 2, 0.7);
+
+  /* Usage: Danger buttons, remove actions, error states, HP-related elements */
+
+  /* ========================================
+     GREEN SYSTEM - Based on AP Bar Green (#3cb371)
+     ======================================== */
+  --color-green-primary: #3cb371;            /* Base green - AP bar color */
+  --color-green-bright: #4dd894;             /* Brighter green for dark backgrounds */
+  --color-green-dim: #2d864f;                /* Dimmer green for bright backgrounds */
+  --color-green-rgba-light: rgba(60, 179, 113, 0.3);
+  --color-green-rgba-medium: rgba(60, 179, 113, 0.5);
+  --color-green-rgba-strong: rgba(60, 179, 113, 0.7);
+
+  /* Usage: Success buttons, affirmative actions, AP-related elements */
+
+  /* ========================================
+     GOLDEN SYSTEM - Standardized Primary Accents
+     ======================================== */
+  --color-gold-primary: #ffd700;             /* Primary golden (bright) - main accent */
+  --color-gold-dim: #d4af37;                 /* Dimmed golden - subtle accents */
+  --color-gold-subtle: #8b7355;              /* Very subtle golden - barely visible */
+  --color-gold-rgba-light: rgba(255, 215, 0, 0.3);
+  --color-gold-rgba-medium: rgba(255, 215, 0, 0.5);
+  --color-gold-rgba-strong: rgba(255, 215, 0, 0.7);
+
+  /* Usage: Primary actions, highlights, borders, interactive elements */
+
+  /* ========================================
+     TEXT COLOR SYSTEM - Already Standardized
+     ======================================== */
+  --color-text-primary: #e8e6e3;             /* Main text (off-white) */
+  --color-text-secondary: #b0a99f;           /* Secondary text (warm gray) */
+  --color-text-tertiary: #6b6b6b;            /* Tertiary text (medium gray) */
+  --color-text-disabled: #4a4a4a;            /* Disabled text (dark gray) */
+
+  /* Usage:
+     - Primary: Main content, important labels
+     - Secondary: Descriptions, metadata, helper text
+     - Tertiary: Placeholders, subtle info
+     - Disabled: Inactive elements
+  */
+
+  /* ========================================
+     LEGACY COLOR VARIABLES (Map to new system)
+     ======================================== */
+  /* Primary Background Colors */
+  --color-bg-primary: #0a0a0a;
+  --color-bg-secondary: #1a1a1a;
+  --color-bg-tertiary: #2a2a2a;
+  --color-bg-overlay: rgba(0, 0, 0, 0.85);
+
+  /* Accent Colors - Now mapped to golden system */
+  --color-accent-gold: var(--color-gold-dim);
+  --color-accent-gold-bright: var(--color-gold-primary);
+  --color-accent-gold-dim: var(--color-gold-subtle);
+  --color-accent-amber: var(--color-gold-primary);
+
+  /* Button/Action Colors (Primary Actions - Golden/Yellow) */
+  --color-btn-primary-bg: var(--color-gold-rgba-light);
+  --color-btn-primary-bg-hover: var(--color-gold-rgba-medium);
+  --color-btn-primary-bg-active: var(--color-gold-rgba-strong);
+  --color-btn-primary-border: var(--color-gold-dim);
+  --color-btn-primary-border-hover: var(--color-gold-primary);
+
+  /* Button/Action Colors (Danger/Remove - Red) */
+  --color-btn-danger-bg: var(--color-red-rgba-light);
+  --color-btn-danger-bg-hover: var(--color-red-rgba-medium);
+  --color-btn-danger-border: var(--color-red-primary);
+  --color-btn-danger-text: var(--color-red-bright);
+
+  /* Button/Action Colors (Success/Affirmative - Green) */
+  --color-btn-success-bg: var(--color-green-rgba-medium);
+  --color-btn-success-bg-hover: var(--color-green-rgba-strong);
+  --color-btn-success-border: var(--color-green-dim);
+  --color-btn-success-text: var(--color-green-bright);
+
+  /* Button/Action Colors (Secondary/Cancel - Transparent) */
+  --color-btn-transparent-bg: transparent;
+  --color-btn-transparent-border: rgba(255, 255, 255, 0.1);
+
+  /* Slider Colors */
+  --color-slider-track: transparent;
+  --color-slider-thumb: var(--color-gold-dim);
+  --color-slider-thumb-hover: var(--color-gold-primary);
+
+  /* Text Colors */
+  --color-text-primary: #e8e6e3;
+  --color-text-secondary: #b0a99f;
+  --color-text-light: #E0E0E0;
+  --color-text-lighter: #B8B8B8;
+  --color-text-tertiary: #6b6b6b;
+  --color-text-disabled: #4a4a4a;
+  --color-text-gold: var(--color-gold-dim);
+
+  /* Semantic Colors */
+  --color-hp: var(--color-red-primary);
+  --color-fp: #4169e1;
+  --color-ap: var(--color-green-primary);
+  --color-souls: var(--color-gold-primary);
+  --color-level: var(--color-gold-primary);
+
+  /* Damage Type Colors */
+  --color-damage-physical: #e8e6e3;
+  --color-damage-magic: #1e90ff;
+  --color-damage-fire: #ff4500;
+  --color-damage-lightning: #ffff00;
+  --color-damage-dark: #8b008b;
+
+  /* State Colors */
+  --color-success: var(--color-green-primary);
+  --color-warning: var(--color-red-primary);
+  --color-danger: var(--color-red-primary);
+  --color-danger-hover: var(--color-red-dim);
+  --color-info: #2f4f4f;
+
+  /* Border Colors */
+  --color-border-primary: var(--color-gold-rgba-light);
+  --color-border-secondary: rgba(255, 255, 255, 0.1);
+  --color-border-tertiary: rgba(255, 255, 255, 0.05);
+
+  /* Shadows */
+  --shadow-gold-soft: 0 0 10px var(--color-gold-rgba-light);
+  --shadow-gold-medium: 0 0 15px var(--color-gold-rgba-medium);
+  --shadow-gold-strong: 0 0 20px var(--color-gold-rgba-strong);
+  --shadow-gold-inset: inset 0 0 8px var(--color-gold-rgba-light);
+  --shadow-panel: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-inset: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+
+  /* Typography */
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 2rem;
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+
+  /* Spacing System */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  --spacing-2xl: 3rem;
+
+  /* Border Styles */
+  --border-radius-sm: 2px;
+  --border-radius-md: 4px;
+  --border-radius-lg: 6px;
+  --border-radius-xl: 8px;
+
+  --border-width-thin: 1px;
+  --border-width-medium: 2px;
+  --border-width-thick: 3px;
+
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.3s ease;
+  --transition-slow: 0.5s ease;
+  --transition-hover: all 0.2s ease-in-out;
+  --transition-glow: box-shadow 0.3s ease-in-out;
+}
+
+/* ===========================================
+   Global Styles & Base Elements
+   =========================================== */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-family: 'EB Garamond', serif;
+  line-height: var(--line-height-normal);
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(255, 255, 255, 0.01) 2px,
+      rgba(255, 255, 255, 0.01) 4px
+    );
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.5;
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--color-text-gold);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  margin: 0;
+}
+
+h1 { font-size: var(--font-size-3xl); }
+h2 { font-size: var(--font-size-2xl); }
+h3 { font-size: var(--font-size-xl); }
+h4 { font-size: var(--font-size-lg); }
+h5 { font-size: var(--font-size-base); }
+h6 { font-size: var(--font-size-sm); }
+
+p {
+  margin: 0;
+  line-height: var(--line-height-normal);
+}
+
+a {
+  color: var(--color-accent-gold);
+  text-decoration: none;
+  transition: var(--transition-hover);
+}
+
+a:hover {
+  color: var(--color-accent-gold-bright);
+  text-shadow: var(--shadow-gold-soft);
+}
+
+/* Custom Scrollbar Styles - Hide default scrollbar, use custom scroller.png indicator */
+::-webkit-scrollbar {
+  width: 0px;
+  height: 0px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: transparent;
+}
+
+* {
+  scrollbar-width: none;
+  scrollbar-color: transparent transparent;
+}
+
+/* ===========================================
+   Reusable Panel & Frame Components
+   =========================================== */
+
+/* Standard Panel Border */
+.panel-border {
+  background: var(--color-bg-secondary);
+  border: var(--border-width-medium) solid var(--color-border-primary);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-panel);
+  padding: var(--spacing-lg);
+}
+
+/* Ornate Frame with Corner Decorations */
+.ornate-frame {
+  position: relative;
+  background: var(--color-bg-secondary);
+  border: var(--border-width-medium) solid var(--color-accent-gold-dim);
+  border-radius: var(--border-radius-lg);
+  box-shadow:
+    var(--shadow-panel),
+    inset 0 0 20px rgba(212, 175, 55, 0.1);
+  padding: var(--spacing-xl);
+}
+
+.ornate-frame::before,
+.ornate-frame::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: var(--border-width-medium) solid var(--color-accent-gold);
+}
+
+.ornate-frame::before {
+  top: -2px;
+  left: -2px;
+  border-right: none;
+  border-bottom: none;
+}
+
+.ornate-frame::after {
+  bottom: -2px;
+  right: -2px;
+  border-left: none;
+  border-top: none;
+}
+
+/* Section Divider */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--color-border-primary) 50%,
+    transparent
+  );
+  margin: var(--spacing-lg) 0;
+  border: none;
+}
+
+/* Dark Panel (lighter variant) */
+.dark-panel {
+  background: var(--color-bg-tertiary);
+  border: var(--border-width-thin) solid var(--color-border-secondary);
+  border-radius: var(--border-radius-sm);
+  padding: var(--spacing-md);
+}
+
+/* Glow Effects */
+.glow-subtle {
+  box-shadow: var(--shadow-gold-soft);
+}
+
+.glow-medium {
+  box-shadow: var(--shadow-gold-medium);
+}
+
+.glow-strong {
+  box-shadow: var(--shadow-gold-strong);
+}
+
+.glow-hover:hover {
+  transition: var(--transition-glow);
+  box-shadow: var(--shadow-gold-medium);
+}
+
+/* ===========================================
+   Form Elements - Input Fields & Dropdowns
+   =========================================== */
+
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="password"],
+textarea,
+select {
+  background: var(--color-bg-tertiary);
+  border: var(--border-width-thin) solid var(--color-border-primary);
+  color: var(--color-text-primary);
+  border-radius: var(--border-radius-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-family: 'EB Garamond', serif;
+  font-size: var(--font-size-base);
+  transition: var(--transition-hover);
+  outline: none;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+input:hover,
+textarea:hover,
+select:hover {
+  border-color: var(--color-accent-gold-dim);
+  background: rgba(42, 42, 42, 0.8);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--color-accent-gold-bright);
+  box-shadow: var(--shadow-gold-soft);
+  background: var(--color-bg-tertiary);
+}
+
+input:disabled,
+textarea:disabled,
+select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: var(--color-border-tertiary);
+}
+
+textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath fill='%23d4af37' d='M0 0l6 8 6-8z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--spacing-md) center;
+  padding-right: calc(var(--spacing-md) * 2.5);
+}
+
+/* Range Slider Styles */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: var(--color-slider-track);
+  border: var(--border-width-thin) solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  outline: none;
+  cursor: pointer;
+  transition: var(--transition-hover);
+}
+
+input[type="range"]:hover {
+  border-color: var(--color-border-primary);
+}
+
+input[type="range"]:focus {
+  border-color: var(--color-accent-gold-dim);
+}
+
+/* Webkit Slider Thumb */
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: var(--color-slider-thumb);
+  border: none;
+  outline: none;
+  box-shadow: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: var(--transition-hover);
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  background: var(--color-slider-thumb-hover);
+}
+
+input[type="range"]::-webkit-slider-thumb:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Firefox Slider Thumb */
+input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: var(--color-slider-thumb);
+  border: none;
+  outline: none;
+  box-shadow: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: var(--transition-hover);
+}
+
+input[type="range"]::-moz-range-thumb:hover {
+  background: var(--color-slider-thumb-hover);
+}
+
+input[type="range"]::-moz-range-thumb:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Firefox Slider Track */
+input[type="range"]::-moz-range-track {
+  background: var(--color-slider-track);
+  border: var(--border-width-thin) solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  height: 6px;
+}
+
+/* ===========================================
+   Buttons
+   =========================================== */
+
+button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'EB Garamond', serif;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  border-radius: var(--border-radius-md);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  cursor: pointer;
+  transition: var(--transition-hover);
+  border: none;
+  outline: none;
+  line-height: 1;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--color-btn-primary-bg);
+  border: var(--border-width-medium) solid var(--color-btn-primary-border);
+  color: var(--color-accent-gold-bright);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-btn-primary-bg-hover);
+  border-color: var(--color-btn-primary-border-hover);
+  box-shadow: var(--shadow-gold-medium);
+  color: var(--color-accent-gold-bright);
+}
+
+.btn-primary:active:not(:disabled) {
+  background: var(--color-btn-primary-bg-active);
+  box-shadow: var(--shadow-gold-strong);
+  transform: translateY(1px);
+}
+
+.btn-secondary,
+.btn-neutral,
+.btn-neutral-small {
+  background: var(--color-bg-secondary);
+  border: var(--border-width-thin) solid var(--color-border-secondary);
+  color: var(--color-text-primary);
+}
+
+.btn-secondary:hover:not(:disabled),
+.btn-neutral:hover:not(:disabled),
+.btn-neutral-small:hover:not(:disabled) {
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border-primary);
+  box-shadow: var(--shadow-gold-soft);
+}
+
+.btn-warning,
+.btn-warning-small,
+.btn-danger {
+  background: var(--color-danger);
+  border: var(--border-width-thin) solid #BD2130;
+  color: #FFFFFF;
+}
+
+.btn-warning:hover:not(:disabled),
+.btn-warning-small:hover:not(:disabled),
+.btn-danger:hover:not(:disabled) {
+  background: var(--color-danger-hover);
+  border-color: #BD2130;
+}
+
+.btn-success {
+  background: var(--color-btn-success-bg);
+  border: var(--border-width-medium) solid var(--color-btn-success-border);
+  color: var(--color-btn-success-text);
+}
+
+.btn-success:hover:not(:disabled) {
+  background: var(--color-btn-success-bg-hover);
+  box-shadow: 0 0 15px rgba(45, 80, 22, 0.5);
+}
+
+button.btn-neutral-small,
+button.btn-warning-small,
+button.btn-success-small {
+  padding: calc(var(--spacing-xs) + 2px) var(--spacing-sm);
+  font-size: var(--font-size-sm);
+}
+
+/* ===========================================
+   Page Headings
+   =========================================== */
+
+.page-heading {
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-size: 1.5vw;
+  font-weight: var(--font-weight-bold);
+  padding: 1vh 1vw;
+  border-bottom: var(--border-width-thin) solid var(--color-border-primary);
+  transition: var(--transition-hover);
+}
+
+.page-heading.active {
+  color: var(--color-accent-gold-bright);
+  border-bottom-color: var(--color-accent-gold-bright);
+}
+
+/* ===========================================
+   Scaling Colors (Standardized)
+   =========================================== */
+
+.scaling-positive {
+  color: var(--color-success);
+}
+
+.scaling-negative {
+  color: var(--color-danger);
+}
+
+.scaling-neutral {
+  color: var(--color-text-secondary);
+}
+
+/* ===========================================
+   Phase 4: Enhanced Hover Effects & Transitions
+   Task 20 - SoulsBorne Polish
+   =========================================== */
+
+/* Enhanced Interactive Elements */
+button:not(:disabled),
+a,
+[role="button"],
+.clickable {
+  cursor: pointer;
+  position: relative;
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-glow),
+    background var(--transition-normal),
+    border-color var(--transition-normal),
+    color var(--transition-fast);
+}
+
+/* Subtle Scale on Hover for Interactive Elements */
+button:hover:not(:disabled),
+a:hover,
+[role="button"]:hover,
+.clickable:hover {
+  transform: translateY(-1px);
+}
+
+button:active:not(:disabled),
+[role="button"]:active {
+  transform: translateY(0px);
+}
+
+/* Enhanced Card Hover Effects */
+.panel-border:hover,
+.ornate-frame:hover,
+.dark-panel:hover {
+  border-color: var(--color-accent-gold);
+  box-shadow: var(--shadow-gold-medium);
+  transform: translateY(-2px);
+  transition:
+    transform var(--transition-normal),
+    border-color var(--transition-normal),
+    box-shadow var(--transition-glow);
+}
+
+/* Interactive List Items */
+li:hover,
+.list-item:hover {
+  background: rgba(212, 175, 55, 0.05);
+  transition: background var(--transition-fast);
+}
+
+/* Enhanced Input Focus Animations */
+input:focus,
+textarea:focus,
+select:focus {
+  animation: focusPulse 0.3s ease-out;
+}
+
+@keyframes focusPulse {
+  0% {
+    box-shadow: 0 0 0 rgba(212, 175, 55, 0);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(212, 175, 55, 0.4);
+  }
+  100% {
+    box-shadow: var(--shadow-gold-soft);
+  }
+}
+
+/* Smooth State Transitions for All Interactive Elements */
+* {
+  transition-property: opacity, transform, filter;
+  transition-duration: var(--transition-fast);
+  transition-timing-function: ease;
+}
+
+/* Override for elements that shouldn't transition everything */
+*:not(button):not(a):not(input):not(select):not(textarea) {
+  transition: none;
+}
+
+/* Restore specific transitions where needed */
+button, a, input, select, textarea, [role="button"], .clickable {
+  transition: var(--transition-hover);
+}
+
+/* Enhanced Glow on Hover for Important Elements */
+.glow-on-hover:hover {
+  box-shadow:
+    var(--shadow-gold-medium),
+    0 0 30px rgba(212, 175, 55, 0.2);
+  filter: brightness(1.05);
+}
+
+/* Smooth Cursor Changes */
+button:not(:disabled),
+a,
+[role="button"],
+.clickable,
+input[type="checkbox"],
+input[type="radio"],
+select {
+  cursor: pointer;
+}
+
+input:disabled,
+textarea:disabled,
+select:disabled,
+button:disabled {
+  cursor: not-allowed;
+}
+
+/* Loading/Hover State for Cards */
+.card-hover {
+  transition:
+    all var(--transition-normal),
+    box-shadow var(--transition-glow);
+}
+
+.card-hover:hover {
+  transform: translateY(-3px) scale(1.01);
+  box-shadow:
+    var(--shadow-panel),
+    var(--shadow-gold-medium);
+}
+
+/* Enhanced Border Glow Effect */
+.border-glow {
+  border: var(--border-width-thin) solid var(--color-border-primary);
+  transition:
+    border-color var(--transition-normal),
+    box-shadow var(--transition-glow);
+}
+
+.border-glow:hover {
+  border-color: var(--color-accent-gold-bright);
+  box-shadow:
+    inset 0 0 15px rgba(212, 175, 55, 0.1),
+    0 0 15px rgba(212, 175, 55, 0.3);
+}
+
+/* Text Glow on Hover */
+.text-glow-hover:hover {
+  text-shadow: var(--shadow-gold-soft);
+  color: var(--color-accent-gold-bright);
+  transition:
+    color var(--transition-fast),
+    text-shadow var(--transition-normal);
+}
+
+/* Smooth Opacity Transitions */
+.fade-hover {
+  opacity: 0.8;
+  transition: opacity var(--transition-normal);
+}
+
+.fade-hover:hover {
+  opacity: 1;
+}
+
+/* Enhanced Focus Visible for Accessibility */
+*:focus-visible {
+  outline: 2px solid var(--color-accent-gold-bright);
+  outline-offset: 2px;
+  border-radius: var(--border-radius-sm);
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline-offset: 3px;
+}
+
+/* Smooth Transform Transitions */
+.transform-hover {
+  transition: transform var(--transition-normal);
+}
+
+.transform-hover:hover {
+  transform: scale(1.03);
+}
+
+/* Enhanced Shadow Transitions for Depth */
+.depth-hover {
+  box-shadow: var(--shadow-panel);
+  transition:
+    box-shadow var(--transition-glow),
+    transform var(--transition-normal);
+}
+
+.depth-hover:hover {
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.7),
+    var(--shadow-gold-soft);
+  transform: translateY(-2px);
+}
+
+/* Smooth Color Transitions */
+.color-transition {
+  transition:
+    color var(--transition-normal),
+    background-color var(--transition-normal),
+    border-color var(--transition-normal);
+}
+
+/* Enhanced Button Hover States */
+button:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+button:active:not(:disabled) {
+  filter: brightness(0.95);
+}
+
+/* Link Hover Enhancement */
+a {
+  position: relative;
+}
+
+a::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: var(--color-accent-gold-bright);
+  transition: width var(--transition-normal);
+}
+
+a:hover::after {
+  width: 100%;
+}
+
+/* Smooth Transitions for Checkboxes and Radio Buttons */
+input[type="checkbox"],
+input[type="radio"] {
+  transition:
+    transform var(--transition-fast),
+    box-shadow var(--transition-normal);
+}
+
+input[type="checkbox"]:hover,
+input[type="radio"]:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 8px rgba(212, 175, 55, 0.3);
+}
+
+/* Enhanced Select Dropdown Arrow Animation */
+select {
+  transition:
+    var(--transition-hover),
+    transform var(--transition-fast);
+}
+
+select:hover {
+  transform: translateY(-1px);
+}
+
+/* Smooth Height Transitions for Expanding Elements */
+.expand-transition {
+  transition:
+    max-height var(--transition-slow),
+    opacity var(--transition-normal);
+  overflow: hidden;
+}
+
+/* ===========================================
+   Phase 4: Glow Effects on Important Elements
+   Task 21 - Critical State Indicators
+   =========================================== */
+
+/* Pulsing Glow Animations */
+@keyframes pulseGlowRed {
+  0%, 100% {
+    box-shadow:
+      0 0 10px rgba(220, 20, 60, 0.3),
+      0 0 20px rgba(220, 20, 60, 0.2);
+  }
+  50% {
+    box-shadow:
+      0 0 20px rgba(220, 20, 60, 0.6),
+      0 0 30px rgba(220, 20, 60, 0.4),
+      0 0 40px rgba(220, 20, 60, 0.2);
+  }
+}
+
+@keyframes pulseGlowBlue {
+  0%, 100% {
+    box-shadow:
+      0 0 10px rgba(65, 105, 225, 0.3),
+      0 0 20px rgba(65, 105, 225, 0.2);
+  }
+  50% {
+    box-shadow:
+      0 0 20px rgba(65, 105, 225, 0.6),
+      0 0 30px rgba(65, 105, 225, 0.4),
+      0 0 40px rgba(65, 105, 225, 0.2);
+  }
+}
+
+@keyframes pulseGlowGreen {
+  0%, 100% {
+    box-shadow:
+      0 0 10px rgba(60, 179, 113, 0.3),
+      0 0 20px rgba(60, 179, 113, 0.2);
+  }
+  50% {
+    box-shadow:
+      0 0 20px rgba(60, 179, 113, 0.6),
+      0 0 30px rgba(60, 179, 113, 0.4),
+      0 0 40px rgba(60, 179, 113, 0.2);
+  }
+}
+
+@keyframes pulseGlowGold {
+  0%, 100% {
+    box-shadow:
+      0 0 10px rgba(212, 175, 55, 0.3),
+      0 0 20px rgba(212, 175, 55, 0.2);
+  }
+  50% {
+    box-shadow:
+      0 0 20px rgba(212, 175, 55, 0.6),
+      0 0 30px rgba(212, 175, 55, 0.4),
+      0 0 40px rgba(212, 175, 55, 0.2);
+  }
+}
+
+@keyframes pulseGlowWarning {
+  0%, 100% {
+    box-shadow:
+      0 0 10px rgba(255, 165, 0, 0.3),
+      0 0 20px rgba(255, 165, 0, 0.2);
+  }
+  50% {
+    box-shadow:
+      0 0 20px rgba(255, 165, 0, 0.6),
+      0 0 30px rgba(255, 165, 0, 0.4),
+      0 0 40px rgba(255, 165, 0, 0.2);
+  }
+}
+
+/* Utility Classes for Pulsing Glows */
+.pulse-glow-red {
+  animation: pulseGlowRed 2s ease-in-out infinite;
+}
+
+.pulse-glow-blue {
+  animation: pulseGlowBlue 2s ease-in-out infinite;
+}
+
+.pulse-glow-green {
+  animation: pulseGlowGreen 2s ease-in-out infinite;
+}
+
+.pulse-glow-gold {
+  animation: pulseGlowGold 2s ease-in-out infinite;
+}
+
+.pulse-glow-warning {
+  animation: pulseGlowWarning 2s ease-in-out infinite;
+}
+
+/* Static Glow Effects by Color */
+.glow-red {
+  box-shadow:
+    0 0 15px rgba(220, 20, 60, 0.4),
+    0 0 25px rgba(220, 20, 60, 0.2);
+}
+
+.glow-blue {
+  box-shadow:
+    0 0 15px rgba(65, 105, 225, 0.4),
+    0 0 25px rgba(65, 105, 225, 0.2);
+}
+
+.glow-green {
+  box-shadow:
+    0 0 15px rgba(60, 179, 113, 0.4),
+    0 0 25px rgba(60, 179, 113, 0.2);
+}
+
+.glow-gold {
+  box-shadow:
+    0 0 15px rgba(212, 175, 55, 0.4),
+    0 0 25px rgba(212, 175, 55, 0.2);
+}
+
+.glow-warning {
+  box-shadow:
+    0 0 15px rgba(255, 165, 0, 0.4),
+    0 0 25px rgba(255, 165, 0, 0.2);
+}
+
+/* Enhanced Golden Glow for Primary Actions */
+.btn-primary:hover:not(:disabled) {
+  box-shadow:
+    0 0 20px rgba(212, 175, 55, 0.6),
+    0 0 30px rgba(212, 175, 55, 0.3),
+    inset 0 0 15px rgba(212, 175, 55, 0.1);
+}
+
+.btn-primary:active:not(:disabled) {
+  animation: pulseGlowGold 0.3s ease-out;
+}
+
+/* Enhanced Danger Glow for Warning Actions */
+.btn-danger:hover:not(:disabled),
+.btn-warning:hover:not(:disabled),
+.btn-warning-small:hover:not(:disabled) {
+  box-shadow:
+    0 0 20px rgba(220, 20, 60, 0.5),
+    0 0 30px rgba(220, 20, 60, 0.3),
+    inset 0 0 15px rgba(139, 0, 0, 0.2);
+}
+
+/* Enhanced Success Glow */
+.btn-success:hover:not(:disabled) {
+  box-shadow:
+    0 0 20px rgba(45, 80, 22, 0.6),
+    0 0 30px rgba(144, 238, 144, 0.3),
+    inset 0 0 15px rgba(45, 80, 22, 0.2);
+}
+
+/* Subtle Ambient Glow for Important Panels */
+.panel-border {
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.5),
+    0 0 5px rgba(212, 175, 55, 0.1);
+}
+
+.ornate-frame {
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.5),
+    inset 0 0 20px rgba(212, 175, 55, 0.1),
+    0 0 10px rgba(212, 175, 55, 0.15);
+}
+
+/* Glow Effect on Focus for Better Accessibility */
+input:focus,
+textarea:focus,
+select:focus {
+  box-shadow:
+    0 0 15px rgba(212, 175, 55, 0.4),
+    0 0 25px rgba(212, 175, 55, 0.2),
+    inset 0 0 10px rgba(212, 175, 55, 0.05);
+}
+
+/* Resource Bar Glows (HP/FP/AP) */
+.hp-bar {
+  box-shadow:
+    inset 0 0 8px rgba(0, 0, 0, 0.3),
+    0 0 12px rgba(220, 20, 60, 0.5),
+    0 0 20px rgba(220, 20, 60, 0.2);
+}
+
+.fp-bar {
+  box-shadow:
+    inset 0 0 8px rgba(0, 0, 0, 0.3),
+    0 0 12px rgba(65, 105, 225, 0.5),
+    0 0 20px rgba(65, 105, 225, 0.2);
+}
+
+.ap-bar {
+  box-shadow:
+    inset 0 0 8px rgba(0, 0, 0, 0.3),
+    0 0 12px rgba(60, 179, 113, 0.5),
+    0 0 20px rgba(60, 179, 113, 0.2);
+}
+
+/* Golden Title Glow - REMOVED (Task 5.1) */
+/* Page headers should have NO glow effects */
+
+/* Enhanced Card/Panel Hover Glow */
+.panel-border:hover,
+.ornate-frame:hover,
+.dark-panel:hover {
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.5),
+    0 0 20px rgba(212, 175, 55, 0.4),
+    0 0 30px rgba(212, 175, 55, 0.2),
+    inset 0 0 15px rgba(212, 175, 55, 0.05);
+}
+
+/* Glow for Selected/Active States */
+.selected,
+.active,
+[aria-selected="true"] {
+  box-shadow:
+    0 0 15px rgba(212, 175, 55, 0.5),
+    0 0 25px rgba(212, 175, 55, 0.3),
+    inset 0 0 10px rgba(212, 175, 55, 0.1);
+  border-color: var(--color-accent-gold-bright);
+  color: #ffffff;
+}
+
+/* Tooltip/Popover Glow */
+.tooltip,
+.popover,
+[role="tooltip"] {
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.7),
+    0 0 15px rgba(212, 175, 55, 0.3),
+    0 0 25px rgba(212, 175, 55, 0.1);
+}
+
+/* Status Effect Glows */
+.status-curse {
+  box-shadow: 0 0 12px rgba(139, 0, 139, 0.5);
+}
+
+.status-frost {
+  box-shadow: 0 0 12px rgba(135, 206, 250, 0.5);
+}
+
+.status-bleed {
+  box-shadow: 0 0 12px rgba(220, 20, 60, 0.5);
+}
+
+.status-poison {
+  box-shadow: 0 0 12px rgba(34, 139, 34, 0.5);
+}
+
+.status-toxic {
+  box-shadow: 0 0 12px rgba(128, 0, 128, 0.5);
+}
+
+/* Pulsing Warning for Critical States */
+.warning-critical {
+  animation: pulseGlowWarning 1.5s ease-in-out infinite;
+  border-color: #ffa500 !important;
+}
+
+.danger-critical {
+  animation: pulseGlowRed 1.5s ease-in-out infinite;
+  border-color: var(--color-danger) !important;
+}
+
+/* Subtle Glow on Hover for Clickable Items */
+.clickable:hover,
+[role="button"]:hover {
+  box-shadow:
+    0 0 10px rgba(212, 175, 55, 0.2),
+    0 0 15px rgba(212, 175, 55, 0.1);
+}
+
+/* Enhanced Icon Glow */
+.icon-glow {
+  filter: drop-shadow(0 0 8px rgba(212, 175, 55, 0.4));
+  transition: filter var(--transition-normal);
+}
+
+.icon-glow:hover {
+  filter: drop-shadow(0 0 12px rgba(212, 175, 55, 0.6));
+}
+
+/* Dim Glow for Disabled Elements */
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  box-shadow: none;
+  filter: grayscale(0.5) opacity(0.5);
+}
+
+/* ===========================================
+   Phase 4: Subtle Animations
+   Task 22 - Page & Element Animations
+   =========================================== */
+
+/* Fade In Animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Fade In Up Animation */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Fade In Down Animation */
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Slide In From Right */
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Slide In From Left */
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Scale In Animation */
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Gentle Float Animation for Important Elements */
+@keyframes gentleFloat {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+/* Shimmer Animation for Loading States */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+/* Rotate Animation for Loading Spinners */
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Utility Classes for Animations */
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out;
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.animate-fade-in-down {
+  animation: fadeInDown 0.6s ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.5s ease-out;
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 0.5s ease-out;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.4s ease-out;
+}
+
+.animate-gentle-float {
+  animation: gentleFloat 3s ease-in-out infinite;
+}
+
+/* Staggered Animation Delays for Lists */
+.animate-stagger-1 { animation-delay: 0.05s; }
+.animate-stagger-2 { animation-delay: 0.1s; }
+.animate-stagger-3 { animation-delay: 0.15s; }
+.animate-stagger-4 { animation-delay: 0.2s; }
+.animate-stagger-5 { animation-delay: 0.25s; }
+
+/* Modal/Dialog Entrance Animation */
+.modal-enter,
+.dialog-enter,
+.popup-enter {
+  animation: scaleIn 0.3s ease-out;
+}
+
+/* Smooth Height Expand Animation */
+@keyframes expandHeight {
+  from {
+    max-height: 0;
+    opacity: 0;
+  }
+  to {
+    max-height: 1000px;
+    opacity: 1;
+  }
+}
+
+.animate-expand {
+  animation: expandHeight 0.4s ease-out;
+  overflow: hidden;
+}
+
+/* Notification Slide In */
+@keyframes notificationSlide {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.notification-enter {
+  animation: notificationSlide 0.4s ease-out;
+}
+
+/* Tab Switch Animation */
+.tab-content-enter {
+  animation: fadeInUp 0.4s ease-out;
+}
+
+/* Loading Spinner */
+.loading-spinner {
+  animation: rotate 1s linear infinite;
+}
+
+/* Loading Skeleton Shimmer */
+.loading-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-tertiary) 0%,
+    rgba(212, 175, 55, 0.1) 50%,
+    var(--color-bg-tertiary) 100%
+  );
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Pulse Animation for Notifications */
+@keyframes pulseNotification {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.9;
+  }
+}
+
+.notification-pulse {
+  animation: pulseNotification 1s ease-in-out 3;
+}
+
+/* Smooth Page Transition */
+.page-transition-enter {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* List Item Stagger Animation */
+.list-item-enter {
+  animation: fadeInUp 0.4s ease-out backwards;
+}
+
+/* Card Grid Animation */
+.card-grid-item {
+  animation: scaleIn 0.5s ease-out backwards;
+}
+
+/* Tooltip Entrance */
+.tooltip-enter {
+  animation: fadeInUp 0.2s ease-out;
+}
+
+/* Dropdown Menu Animation */
+.dropdown-enter {
+  animation: fadeInDown 0.2s ease-out;
+}
+
+/* Success Checkmark Animation */
+@keyframes checkmark {
+  0% {
+    stroke-dashoffset: 100;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.checkmark-animate {
+  animation: checkmark 0.5s ease-out;
+}
+
+/* Error Shake Animation */
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-5px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(5px);
+  }
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+/* Bounce Animation for Attention */
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-bounce {
+  animation: bounce 0.6s ease-in-out;
+}
+
+/* Glow Pulse for Important Actions */
+@keyframes glowPulse {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(212, 175, 55, 0.6);
+  }
+}
+
+.animate-glow-pulse {
+  animation: glowPulse 2s ease-in-out infinite;
+}
+
+/* Smooth State Change Animation */
+.state-change {
+  transition:
+    opacity var(--transition-normal),
+    transform var(--transition-normal),
+    background var(--transition-normal),
+    color var(--transition-normal);
+}
+
+/* Page Load Animation for Main Content */
+.page-content {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+/* Section Load with Delay */
+.section-delayed-1 {
+  animation: fadeInUp 0.6s ease-out 0.1s backwards;
+}
+
+.section-delayed-2 {
+  animation: fadeInUp 0.6s ease-out 0.2s backwards;
+}
+
+.section-delayed-3 {
+  animation: fadeInUp 0.6s ease-out 0.3s backwards;
+}
+
+/* Smooth Opacity Fade */
+.fade-transition {
+  transition: opacity var(--transition-normal);
+}
+
+.fade-transition.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Slide and Fade Combined */
+@keyframes slideAndFade {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-fade {
+  animation: slideAndFade 0.5s ease-out;
+}
+
+/* Highlight Flash Animation */
+@keyframes highlightFlash {
+  0% {
+    background-color: rgba(212, 175, 55, 0);
+  }
+  50% {
+    background-color: rgba(212, 175, 55, 0.3);
+  }
+  100% {
+    background-color: rgba(212, 175, 55, 0);
+  }
+}
+
+.animate-highlight {
+  animation: highlightFlash 1s ease-out;
+}
+
+/* Progressive Reveal for Long Lists */
+.progressive-reveal {
+  animation: fadeInUp 0.4s ease-out backwards;
+}
+
+/* Breathing Animation for Idle States */
+@keyframes breathe {
+  0%, 100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-breathe {
+  animation: breathe 3s ease-in-out infinite;
+}
+
+/* ===========================================
+   Phase 4: Performance Optimization
+   Task 24 - CSS Performance & Rendering
+   =========================================== */
+
+/* Hardware Acceleration for Animations */
+.animate-fade-in,
+.animate-fade-in-up,
+.animate-fade-in-down,
+.animate-slide-in-right,
+.animate-slide-in-left,
+.animate-scale-in,
+.card-hover,
+.transform-hover,
+button:hover,
+.panel-border:hover,
+.ornate-frame:hover,
+.dark-panel:hover {
+  will-change: transform;
+}
+
+.animate-gentle-float,
+.animate-glow-pulse,
+.animate-breathe,
+.pulse-glow-red,
+.pulse-glow-blue,
+.pulse-glow-green,
+.pulse-glow-gold,
+.pulse-glow-warning {
+  will-change: box-shadow;
+}
+
+.fade-transition,
+.fade-hover {
+  will-change: opacity;
+}
+
+/* Remove will-change after animation completes */
+.animate-fade-in,
+.animate-fade-in-up,
+.animate-fade-in-down,
+.animate-slide-in-right,
+.animate-slide-in-left,
+.animate-scale-in {
+  animation-fill-mode: forwards;
+}
+
+/* Optimize Repaints with Containment */
+.panel-border,
+.ornate-frame,
+.dark-panel,
+.modal-enter,
+.dialog-enter,
+.popup-enter {
+  contain: layout style paint;
+}
+
+/* Optimize Text Rendering */
+body,
+button,
+input,
+select,
+textarea {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* GPU Acceleration for Transforms */
+.card-hover,
+.transform-hover,
+button,
+.panel-border,
+.ornate-frame {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Optimize Scrolling Performance */
+.overflow-scroll,
+.overflow-auto {
+  -webkit-overflow-scrolling: touch;
+  overflow-scrolling: touch;
+}
+
+/* Optimize Box-Shadow Performance */
+.panel-border,
+.ornate-frame,
+.dark-panel,
+button {
+  transform: translate3d(0, 0, 0);
+}
+
+/* Prevent Layout Thrashing */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+  display: none;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Optimize Image Loading */
+img {
+  content-visibility: auto;
+}
+
+/* Batch Similar Selectors for Efficiency */
+button:hover:not(:disabled),
+a:hover,
+[role="button"]:hover,
+.clickable:hover,
+input:hover,
+select:hover,
+textarea:hover {
+  will-change: auto;
+}
+
+/* Optimize Animation Timing Functions */
+/* Note: Animation timing is defined in individual @keyframes declarations above */
+
+/* Debounce Hover Effects */
+button:hover:not(:disabled),
+.panel-border:hover,
+.ornate-frame:hover {
+  transition-delay: 0ms;
+}
+
+/* Optimize Selector Specificity - Consolidated Rules */
+.btn-primary,
+.btn-secondary,
+.btn-neutral,
+.btn-neutral-small,
+.btn-warning,
+.btn-warning-small,
+.btn-danger,
+.btn-success {
+  isolation: isolate;
+}
+
+/* Reduce Compositing Layers */
+.panel-border,
+.ornate-frame,
+.dark-panel {
+  isolation: isolate;
+}
+
+/* Optimize Pseudo-element Performance */
+.ornate-frame::before,
+.ornate-frame::after,
+a::after,
+body::before {
+  content-visibility: auto;
+}
+
+/* Critical CSS - Above the Fold Optimization */
+.top-bar,
+.header-section,
+.resource-bars-section {
+  contain: layout;
+}
+
+/* Defer Non-Critical Animations */
+.animate-gentle-float,
+.animate-glow-pulse,
+.animate-breathe {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-gentle-float,
+  .animate-glow-pulse,
+  .animate-breathe {
+    animation-play-state: paused;
+  }
+}
+
+/* Optimize Gradient Performance */
+.loading-skeleton {
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+
+/* Reduce Paint Areas */
+.section-divider,
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-thumb {
+  contain: strict;
+}
+
+/* Optimize Filter Performance */
+.icon-glow,
+button:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateZ(0);
+}
+
+/* Consolidate Box-Shadow Declarations */
+.glow-subtle,
+.glow-medium,
+.glow-strong,
+.glow-red,
+.glow-blue,
+.glow-green,
+.glow-gold,
+.glow-warning {
+  isolation: isolate;
+}
+
+/* Performance: Remove Redundant Transitions */
+* {
+  transition-property: none;
+}
+
+button,
+a,
+input,
+select,
+textarea,
+[role="button"],
+.clickable,
+.panel-border,
+.ornate-frame,
+.dark-panel {
+  transition-property: transform, box-shadow, background, border-color, color, opacity;
+}
+
+/* Optimize Animation Performance */
+@media (prefers-reduced-motion: no-preference) {
+  /* Enable animations only when user allows motion */
+  .animate-fade-in,
+  .animate-fade-in-up,
+  .animate-scale-in {
+    animation-fill-mode: both;
+  }
+}
+
+/* Reduce Motion for Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+    will-change: auto !important;
+  }
+
+  /* Disable all decorative animations */
+  .animate-gentle-float,
+  .animate-glow-pulse,
+  .animate-breathe,
+  .notification-pulse,
+  .pulse-glow-red,
+  .pulse-glow-blue,
+  .pulse-glow-green,
+  .pulse-glow-gold,
+  .pulse-glow-warning,
+  .warning-critical,
+  .danger-critical {
+    animation: none !important;
+  }
+
+  /* Keep instant transitions for functional animations */
+  .fade-transition,
+  .state-change {
+    transition: none !important;
+  }
+
+  /* Remove will-change for reduced motion */
+  * {
+    will-change: auto !important;
+  }
+}
+
+/* Performance Monitoring Hints */
+@supports (content-visibility: auto) {
+  .list-item-enter,
+  .card-grid-item,
+  .progressive-reveal {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 50px;
+  }
+}
+
+/* Optimize Long Lists with Virtual Scrolling Hints */
+.long-list-container {
+  overflow-anchor: auto;
+  scroll-behavior: smooth;
+}
+
+/* GPU Compositing for Smooth 60fps */
+@media (min-resolution: 2dppx) {
+  .panel-border,
+  .ornate-frame,
+  button,
+  .card-hover {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* ===========================================
+   Font Weight Reduction for Heavy Pages
+   =========================================== */
+
+/* Reduce font weight on text-heavy pages for better readability */
+.font-bold {
+  font-weight: var(--font-weight-semibold) !important;
+}
+
+/* Specific reductions for heavy pages */
+.main-tab .font-bold,
+.main-tab .font-semibold {
+  font-weight: var(--font-weight-medium) !important;
+}
+
+/* Keep titles and important elements bold */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: var(--font-weight-bold) !important;
+}
+
+/* Buttons stay semibold for emphasis */
+button {
+  font-weight: var(--font-weight-semibold) !important;
+}
+
+/* ===========================================
+   Reusable Page Components
+   =========================================== */
+
+/* Page Header - Used across all main pages (Spells, Proficiencies, Traits, etc.) */
+.page-header-bar {
+  position: sticky;
+  top: 0;
+  padding: var(--spacing-md) var(--spacing-lg);
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: var(--font-weight-semibold);
+  z-index: 10;
+  border-bottom: var(--border-width-thin) solid var(--color-border-primary);
+  background: var(--color-bg-secondary);
+}
+
+.page-title {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-accent-gold-bright);
+  margin: 0;
+  text-shadow: none;
+  filter: none;
+}
+
+/* Filter Panel - Used for dropdowns/search in left panels */
+.filter-panel {
+  position: sticky;
+  top: 0;
+  padding: var(--spacing-md);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  font-weight: var(--font-weight-semibold);
+  z-index: 10;
+  border-bottom: var(--border-width-thin) solid var(--color-border-primary);
+  background: var(--color-bg-primary);
+}
+
+/* ===========================================
+   Reusable Golden Item States (List Items, Feats, Trees)
+   =========================================== */
+
+/* Default Item - Transparent background with standard border */
+.item-default {
+  background: transparent;
+  border: 2px solid var(--color-border-primary);
+  color: var(--color-text-primary);
+  transition: var(--transition-hover);
+}
+
+.item-default:hover {
+  border-color: var(--color-accent-gold);
+  box-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
+}
+
+/* Locked/Unavailable Item - Dimmed and transparent */
+.item-locked {
+  background: transparent;
+  color: var(--color-text-tertiary);
+  border: 2px solid var(--color-border-secondary);
+  cursor: not-allowed;
+}
+
+/* Obtained/Learned/Invested Item - Strong golden emphasis */
+.item-obtained {
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.25), rgba(212, 175, 55, 0.1));
+  border: 2px solid var(--color-accent-gold-bright);
+  color: var(--color-accent-gold-bright);
+  font-weight: var(--font-weight-semibold);
+  box-shadow: 0 0 20px rgba(212, 175, 55, 0.4);
+}
+
+.item-obtained:hover {
+  border-color: var(--color-accent-gold-bright);
+  box-shadow: 0 0 30px rgba(212, 175, 55, 0.6);
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.35), rgba(212, 175, 55, 0.15));
+}
+
+/* ===========================================
+   Reusable Tree/Parent Item States
+   =========================================== */
+
+/* Tree Header - Default (no investment) */
+.tree-header-default {
+  background: transparent;
+  color: var(--color-text-primary);
+  border: var(--border-width-thin) solid var(--color-border-primary);
+  transition: var(--transition-hover);
+}
+
+.tree-header-default:hover {
+  border-color: var(--color-accent-gold);
+  box-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
+}
+
+/* Tree Header - Invested (has points) - Strong golden emphasis */
+.tree-header-invested {
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(212, 175, 55, 0.08));
+  border: 2px solid var(--color-accent-gold-bright);
+  color: var(--color-accent-gold-bright);
+  font-weight: var(--font-weight-bold);
+  box-shadow: 0 0 25px rgba(212, 175, 55, 0.4);
+}
+
+.tree-header-invested:hover {
+  border-color: var(--color-accent-gold-bright);
+  box-shadow: 0 0 35px rgba(212, 175, 55, 0.6);
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.3), rgba(212, 175, 55, 0.12));
+}
+
+/* ===========================================
+   Subtle Layered Depth System - Task 1.6
+   Reusable background classes for cohesive dark theme
+   =========================================== */
+
+/* Layer 0 - Base background (already defined as --color-bg-primary) */
+.bg-layer-0 {
+  background: var(--color-bg-primary);
+}
+
+/* Layer 1 - Subtle panel/section background */
+.bg-layer-1 {
+  background: rgba(26, 26, 26, 0.3);
+}
+
+/* Layer 2 - Nested element background */
+.bg-layer-2 {
+  background: rgba(42, 42, 42, 0.2);
+}
+
+/* Floating elements - modals, popups, tooltips (more prominent) */
+.bg-floating {
+  background: var(--color-bg-secondary);
+}
+
+/* ===========================================
+   Performance Notes for Future Optimization
+   ===========================================
+
+   1. Consider lazy-loading images with loading="lazy"
+   2. Use intersection observer for scroll animations
+   3. Implement virtual scrolling for long lists (>100 items)
+   4. Consider splitting CSS into critical/non-critical
+   5. Use font-display: swap for custom fonts
+   6. Minimize JavaScript-triggered reflows
+   7. Use requestAnimationFrame for smooth animations
+   8. Consider CSS containment for isolated components
+   9. Profile with Chrome DevTools Performance tab
+   10. Monitor FPS during interactions (target 60fps)
+
+   =========================================== */

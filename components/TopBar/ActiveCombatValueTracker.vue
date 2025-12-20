@@ -1,112 +1,136 @@
 <template>
-  <div class="flex h-full">
-    <div class="flex flex-col justify-between w-full px-3 py-3 min-w-[100px]">
-      <div class="relative w-full h-7 text-center rounded overflow-hidden">
-        <div class="absolute h-full bg-[#790000] rounded-md" :style="`width: ${hpPercentage}%`" />
-        <div class="absolute z-10 left-2/4 top-2/4 origin-center" style="transform: translate(-50%, -50%)">
+  <div class="flex flex-col h-full w-full">
+    <!-- HP/FP/AP Bars Section -->
+    <div class="flex flex-col justify-between flex-1 px-0 py-2 gap-2">
+      <div class="relative w-full h-full text-center rounded overflow-hidden">
+        <div class="resource-bar-track"></div>
+        <div class="absolute h-full hp-bar" :style="`width: ${regularHpBarWidth}%; transition: width 0.3s ease;`" />
+        <div
+          v-if="playerStore.UserInputValues.TempHP > 0"
+          class="absolute h-full temp-hp-bar"
+          :style="`left: ${regularHpBarWidth}%; width: ${tempHpBarWidth}%; transition: width 0.3s ease, left 0.3s ease;`"
+        />
+        <div class="absolute z-10 left-2/4 top-2/4 origin-center flex items-center" style="transform: translate(-50%, -50%)">
           <input
-            v-model="playerStore.UserInputValues.CurrentHP"
+            v-model.number="playerStore.UserInputValues.CurrentHP"
             type="number"
             min="0"
-            class="w-fit max-w-[40px] text-right bg-transparent"
-            @change="setHP"
+            class="text-right bg-transparent text-sm font-bold border-none outline-none resource-input resource-text"
+            style="text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9); -moz-appearance: textfield;"
+            @blur="setHP"
+            @keyup.enter="setHP"
           />
-
-          <span>
-            /
-          </span>
-
-          <span>
-            {{ maxHp }}
-          </span>
+          <span v-if="playerStore.UserInputValues.TempHP > 0" class="resource-text text-sm font-bold" style="text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);">+{{ playerStore.UserInputValues.TempHP }}</span>
+          <span class="resource-text text-sm font-bold" style="text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);">/</span>
+          <span class="resource-text text-sm font-bold" style="text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);">{{ maxHp }}</span>
         </div>
       </div>
 
-      <div class="relative w-full h-7 text-center rounded overflow-hidden">
-        <div class="absolute h-full bg-[#295A72] rounded-md" :style="`width: ${fpPercentage}%`" />
-        <div class="absolute z-10 left-2/4 top-2/4 origin-center" style="transform: translate(-50%, -50%)">
+      <div class="relative w-full h-full text-center rounded overflow-hidden">
+        <div class="resource-bar-track"></div>
+        <div class="absolute h-full fp-bar" :style="`width: ${fpPercentage}%; transition: width 0.3s ease;`" />
+        <div class="absolute z-10 left-2/4 top-2/4 origin-center flex items-center" style="transform: translate(-50%, -50%)">
           <input
-            v-model="playerStore.UserInputValues.CurrentFP"
+            v-model.number="playerStore.UserInputValues.CurrentFP"
             type="number"
             min="0"
-            class="w-fit max-w-[40px] text-right bg-transparent"
-            @change="setFP"
+            class="text-right bg-transparent text-sm font-bold border-none outline-none resource-input resource-text"
+            style="text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9); -moz-appearance: textfield;"
+            @blur="setFP"
+            @keyup.enter="setFP"
           />
-
-          <span>
-            /
-          </span>
-
-          <span>
-            {{ maxFp }}
-          </span>
+          <span v-if="playerStore.UserInputValues.CurrentFP > maxFp" class="resource-text text-sm font-bold" style="text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);">+</span>
+          <span class="resource-text text-sm font-bold" style="text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);">/</span>
+          <span class="resource-text text-sm font-bold" style="text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);">{{ maxFp }}</span>
         </div>
       </div>
 
-      <div class="relative w-full h-7 text-center rounded overflow-hidden">
-        <div class="absolute h-full bg-[#2A6B21] rounded-md" :style="`width: ${apPercentage}%`" />
-        <div class="absolute z-10 left-2/4 top-2/4 origin-center" style="transform: translate(-50%, -50%)">
+      <div class="relative w-full h-full text-center rounded overflow-hidden">
+        <div class="resource-bar-track"></div>
+        <div class="absolute h-full ap-bar" :style="`width: ${apPercentage}%; transition: width 0.3s ease;`" />
+        <div class="absolute z-10 left-2/4 top-2/4 origin-center flex items-center" style="transform: translate(-50%, -50%)">
           <input
-            v-model="playerStore.UserInputValues.CurrentAP"
+            v-model.number="playerStore.UserInputValues.CurrentAP"
             type="number"
             min="0"
-            class="w-fit max-w-[40px] text-right bg-transparent"
-            @change="setAP"
+            class="text-right bg-transparent text-sm font-bold border-none outline-none resource-input resource-text"
+            style="text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9); -moz-appearance: textfield;"
+            @blur="setAP"
+            @keyup.enter="setAP"
           />
-
-          <span>
-            /
-          </span>
-
-          <span>
-            {{ maxAp }}
-          </span>
+          <span v-if="playerStore.UserInputValues.CurrentAP > maxAp" class="resource-text text-sm font-bold" style="text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);">+</span>
+          <span class="resource-text text-sm font-bold" style="text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);">/</span>
+          <span class="resource-text text-sm font-bold" style="text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);">{{ maxAp }}</span>
         </div>
       </div>
     </div>
 
-    <div class="flex flex-col border-l">
-      <div class="flex w-full h-1/3">
-        <button @click="drinkFlask('hp')" class="w-full mx-1">
-          <div class="flex w-full justify-center p-1 text-center">
-            {{ playerStore.UserInputValues.HpFlask }} <img src="@/img/icons/flask.png" class="w-6" style="filter: brightness(0) invert(0.9);">
+    <!-- Flasks Section Below -->
+    <div class="flex h-16 border-t border-white/20">
+      <!-- HP Flask Column -->
+      <div class="flex flex-col w-1/3 border-r border-white/20">
+        <div class="flex h-2/3">
+          <button @click="drinkFlask('hp')" class="w-full flask-drink-button">
+            <div class="flex w-full justify-center items-center gap-1 p-1 text-center">
+              <span class="flask-count-text">{{ playerStore.UserInputValues.HpFlask }}</span>
+              <img src="@/img/icons/flask.png" class="w-6" style="filter: brightness(0) invert(0.9);">
+            </div>
+          </button>
+
+          <div class="flex flex-col w-7 border-l border-white/20">
+            <button class="flask-button flex items-center justify-center h-1/2 border-b border-white/20" @click="addFlask('hp')">
+              <span class="flask-button-text">+</span>
+            </button>
+
+            <button class="flask-button flex items-center justify-center h-1/2" @click="removeFlask('hp')">
+              <span class="flask-button-text">-</span>
+            </button>
           </div>
-        </button>
+        </div>
 
-        <div class="flex flex-col w-7">
-          <button class="flex items-center justify-center h-1/2 border-b bg-teal" @click="addFlask('hp')">
-            <UIcon name="i-heroicons-chevron-up" />
-          </button>
-
-          <button class="flex items-center justify-center h-1/2 bg-teal" @click="removeFlask('hp')">
-            <UIcon name="i-heroicons-chevron-down" />
-          </button>
+        <div class="flex flex-col items-center justify-center h-1/3 select-none text-xs flask-label border-t border-white/20 pt-3">
+          <span class="text-sm">Crimson ({{ hpFlaskRestoreAmount }})</span>
         </div>
       </div>
 
-      <div class="flex w-full h-1/3 border-t">
-        <button @click="drinkFlask('fp')" class="w-full mx-1">
-          <div class="flex p-1 w-full justify-center text-center">
-            {{ playerStore.UserInputValues.FpFlask }} <img src="@/img/icons/flask.png" class="w-6" style="filter: brightness(0) invert(0.9);">
+      <!-- FP Flask Column -->
+      <div class="flex flex-col w-1/3 border-r border-white/20">
+        <div class="flex h-2/3">
+          <button @click="drinkFlask('fp')" class="w-full flask-drink-button">
+            <div class="flex w-full justify-center items-center gap-1 p-1 text-center">
+              <span class="flask-count-text">{{ playerStore.UserInputValues.FpFlask }}</span>
+              <img src="@/img/icons/flask.png" class="w-6" style="filter: brightness(0) invert(0.9);">
+            </div>
+          </button>
+
+          <div class="flex flex-col w-7 border-l border-white/20">
+            <button class="flask-button flex items-center justify-center h-1/2 border-b border-white/20" @click="addFlask('fp')">
+              <span class="flask-button-text">+</span>
+            </button>
+
+            <button class="flask-button flex items-center justify-center h-1/2" @click="removeFlask('fp')">
+              <span class="flask-button-text">-</span>
+            </button>
           </div>
-        </button>
+        </div>
 
-        <div class="flex flex-col w-7">
-          <button class="flex items-center justify-center h-1/2 border-b bg-teal" @click="addFlask('fp')">
-            <UIcon name="i-heroicons-chevron-up" />
-          </button>
-
-          <button class="flex items-center justify-center h-1/2 bg-teal" @click="removeFlask('fp')">
-            <UIcon name="i-heroicons-chevron-down" />
-          </button>
+        <div class="flex flex-col items-center justify-center h-1/3 select-none text-xs flask-label border-t border-white/20 pt-3">
+          <span class="text-sm">Cerulean ({{ fpFlaskRestoreAmount }})</span>
         </div>
       </div>
 
-      <div class="flex flex-col items-center justify-center h-1/3 border-t select-none">
-        Flask lv.
-        <span>
-          +{{ playerStore.UserInputValues.FlaskLevel }}
-        </span>
+      <!-- Flask Level Column -->
+      <div class="flex flex-col w-1/3">
+        <div class="flex h-2/3 items-center justify-center">
+        <span class="flask-level-text">+{{ playerStore.UserInputValues.FlaskLevel }}</span>
+          <div class="flex flex-col items-center justify-center flask-level-text">
+            <img src="@/img/icons/flask.png" class="w-6" style="filter: brightness(0) invert(0.9);" />
+          </div>
+        </div>
+
+        <div class="flex flex-col items-center justify-center h-1/3 select-none text-xs flask-label border-t border-white/20 pt-3">
+          <span class="text-sm">Flask Level</span>
+        </div>
       </div>
     </div>
   </div>
@@ -115,13 +139,21 @@
 <script setup lang="ts">
 import { statMod } from '~~/mixins/utils';
 import { usePlayerStore } from '~~/store/player';
-import * as utils from '@/mixins/utils'
 
 const playerStore = usePlayerStore()
 
-const maxHp = computed(()=>{
-  const backgroundStartingHP = utils.getBackgroundHP(playerStore.Background)
-  return backgroundStartingHP + playerStore.UserInputValues.MaxHPBonus
+const maxHp = computed(() => {
+  const startingHP = playerStore.StartingHP || 0
+  const levelHP = playerStore.LevelHP || 0
+  const bonusHP = playerStore.UserInputValues.MaxHPBonus || 0
+
+  // Vit Mod bonus: Level 1 gets x1, Level 2+ gets x(floor(level/2) + 1)
+  const vitality = playerStore.CharacterStats.Stats.Vitality
+  const vitMod = statMod(vitality)
+  const level = playerStore.Level
+  const vitBonus = level === 1 ? vitMod : vitMod * (Math.floor(level / 2) + 1)
+
+  return startingHP + levelHP + bonusHP + vitBonus
 })
 
 const maxFp = computed(()=>{
@@ -134,15 +166,40 @@ const maxFp = computed(()=>{
   return baseFP + playerStore.UserInputValues.MaxFPBonus
 })
 
-const maxAp = computed(()=>{
-  return 8 + statMod(playerStore.CharacterStats.Stats.Endurance) + playerStore.UserInputValues.MaxAPBonus
+const maxAp = computed(() => {
+  const endurance = playerStore.CharacterStats.Stats.Endurance
+  const endMod = statMod(endurance)
+  const bonus = playerStore.UserInputValues.MaxAPBonus
+  return 8 + endMod + bonus
 })
 
-let hpPercentage = computed(()=>{
-  try {
-    return Math.max((playerStore.UserInputValues.CurrentHP / maxHp.value) * 100, 0)
-  } catch {}
-  return 0
+const regularHpBarWidth = computed(() => {
+  if (maxHp.value === 0) return 0
+  const current = playerStore.UserInputValues.CurrentHP
+  const temp = playerStore.UserInputValues.TempHP
+  const totalHP = current + temp
+
+  // Bar width calculation base: max(totalHP, maxHP)
+  const barBase = Math.max(totalHP, maxHp.value)
+
+  // Regular HP (red) bar: Current HP as percentage of bar base
+  const percentage = (current / barBase) * 100
+  return Math.min(Math.max(percentage, 0), 100)
+})
+
+const tempHpBarWidth = computed(() => {
+  const temp = playerStore.UserInputValues.TempHP
+  if (maxHp.value === 0 || temp === 0) return 0
+
+  const current = playerStore.UserInputValues.CurrentHP
+  const totalHP = current + temp
+
+  // Bar width calculation base: max(totalHP, maxHP)
+  const barBase = Math.max(totalHP, maxHp.value)
+
+  // Temp HP (yellow) bar: Temp HP as percentage of bar base
+  const percentage = (temp / barBase) * 100
+  return Math.min(Math.max(percentage, 0), 100)
 })
 
 let fpPercentage = computed(()=>{
@@ -160,18 +217,12 @@ let apPercentage = computed(()=>{
 })
 
 const hpFlaskRestoreAmount = computed<number>(()=>{
-  if (playerStore.UserInputValues.FlaskLevel === 0) {
-    return 15
-  }
-  
+  if (playerStore.UserInputValues.FlaskLevel === 0) return 15
   return 15 + (15 * playerStore.UserInputValues.FlaskLevel)
 })
 
 const fpFlaskRestoreAmount = computed<number>(()=>{
-  if (playerStore.UserInputValues.FlaskLevel === 0) {
-    return 5
-  }
-  
+  if (playerStore.UserInputValues.FlaskLevel === 0) return 5
   return 5 + (2 * playerStore.UserInputValues.FlaskLevel)
 })
 
@@ -193,6 +244,7 @@ function addFlask(type: string) {
   } else {
     playerStore.UserInputValues.FpFlask++
   }
+  playerStore.save()
 }
 
 function removeFlask(type: string) {
@@ -203,17 +255,152 @@ function removeFlask(type: string) {
     playerStore.UserInputValues.FpFlask--
     if (playerStore.UserInputValues.FpFlask < 0) playerStore.UserInputValues.FpFlask = 0
   }
+  playerStore.save()
 }
 
 function setHP() {
-  if (!playerStore.UserInputValues.CurrentHP) playerStore.UserInputValues.CurrentHP = 0
+  // Validate and reset to 0 if empty or invalid
+  if (playerStore.UserInputValues.CurrentHP === null || playerStore.UserInputValues.CurrentHP === undefined || isNaN(playerStore.UserInputValues.CurrentHP)) {
+    playerStore.UserInputValues.CurrentHP = 0
+  }
+
+  // If Current HP exceeds Max HP, convert overflow to Temp HP
+  if (playerStore.UserInputValues.CurrentHP > maxHp.value) {
+    const overflow = playerStore.UserInputValues.CurrentHP - maxHp.value
+    playerStore.UserInputValues.TempHP = overflow  // Reset to overflow amount, not add to existing
+    playerStore.UserInputValues.CurrentHP = maxHp.value
+  }
+
+  playerStore.save()
 }
 
 function setFP() {
-  if (!playerStore.UserInputValues.CurrentFP) playerStore.UserInputValues.CurrentFP = 0
+  // Validate and reset to 0 if empty or invalid
+  if (playerStore.UserInputValues.CurrentFP === null || playerStore.UserInputValues.CurrentFP === undefined || isNaN(playerStore.UserInputValues.CurrentFP)) {
+    playerStore.UserInputValues.CurrentFP = 0
+  }
+  playerStore.save()
 }
 
 function setAP() {
-  if (!playerStore.UserInputValues.CurrentAP) playerStore.UserInputValues.CurrentAP = 0
+  // Validate and reset to 0 if empty or invalid
+  if (playerStore.UserInputValues.CurrentAP === null || playerStore.UserInputValues.CurrentAP === undefined || isNaN(playerStore.UserInputValues.CurrentAP)) {
+    playerStore.UserInputValues.CurrentAP = 0
+  }
+  playerStore.save()
 }
 </script>
+
+<style scoped>
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.resource-input {
+  min-width: 1ch;
+  max-width: 8ch;
+  width: auto;
+  background: transparent;
+  border-color: transparent !important;
+  color: white !important;
+  margin-right: -9px;
+}
+
+.resource-input:focus {
+  outline: none;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--color-accent-gold-bright);
+}
+
+.resource-bar-track {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: var(--color-bg-primary);
+  border: var(--border-width-thin) solid var(--color-border-primary);
+  border-radius: var(--border-radius-sm);
+  box-shadow: var(--shadow-inset);
+}
+
+.hp-bar {
+  background: linear-gradient(90deg, #760000 0%, #a00000 50%, #760000 100%);
+  border-radius: var(--border-radius-sm);
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.temp-hp-bar {
+  background: linear-gradient(90deg, #b8860b 0%, var(--color-gold-primary) 50%, #b8860b 100%);
+  border-radius: var(--border-radius-sm);
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.fp-bar {
+  background: linear-gradient(90deg, #24586a 0%, #2e6b7a 50%, #24586a 100%);
+  border-radius: var(--border-radius-sm);
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.ap-bar {
+  background: linear-gradient(90deg, #206722 0%, #28822d 50%, #206722 100%);
+  border-radius: var(--border-radius-sm);
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.flask-button {
+  background: var(--color-btn-primary-border);
+  border: none;
+  color: #ffffff;
+  transition: var(--transition-hover);
+  cursor: pointer;
+  padding: 0;
+  min-width: 0;
+  border-radius: 0;
+}
+
+.flask-button:hover {
+  background: var(--color-btn-primary-border);
+  border-color: var(--color-gold-primary);
+  color: #ffffff;
+  box-shadow: var(--shadow-gold-medium);
+}
+
+.flask-button-text {
+  color: #ffffff;
+  font-size: 0.83vw; /* ~16px at 1920px - matches base text size */
+  font-weight: 400; /* Normal weight, matches Flask Level */
+  line-height: 1;
+}
+
+.flask-drink-button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: var(--transition-hover);
+  padding: 0;
+}
+
+.flask-drink-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.flask-count-text {
+  color: #ffffff;
+  font-size: 0.83vw; /* ~16px at 1920px - matches Flask Level */
+  font-weight: 100; /* matches Flask Level */
+}
+
+.resource-text {
+  color: var(--color-text-primary);
+}
+
+.flask-label {
+  color: var(--color-text-primary);
+}
+
+.flask-level-text {
+  color: var(--color-text-primary);
+}
+</style>

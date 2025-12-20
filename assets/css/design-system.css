@@ -1,0 +1,388 @@
+/* SD20 Design System - CSS Custom Properties */
+/* Based on DESIGN_GUIDE.md - Soulsborne-inspired theming */
+
+:root {
+  /* ==================== Color Palette ==================== */
+
+  /* Resource Bars - HP (Health) */
+  --color-hp: #770002;
+  --color-hp-gradient-start: #550001;
+  --color-hp-gradient-end: #990003;
+
+  /* Resource Bars - FP (Focus Points) */
+  --color-fp: #245974;
+  --color-fp-gradient-start: #1a3f54;
+  --color-fp-gradient-end: #2e7394;
+
+  /* Resource Bars - AP (Action Points) */
+  --color-ap: #3cb371;
+  --color-ap-gradient-start: #2d864f;
+  --color-ap-gradient-end: #4dd894;
+
+  /* Resource Bars - Temp HP */
+  --color-temp-hp: #f4c430;
+  --color-temp-hp-gradient-end: #ffdf6b;
+
+  /* UI State Colors */
+  --color-primary: #3cb371;          /* Green - Affirmative actions */
+  --color-warning: #770002;          /* Red - Negative/Danger actions */
+  --color-info: #ffd700;             /* Golden - Neutral/Info actions */
+  --color-success: #3cb371;          /* Green - Success states */
+  --color-danger: #770002;           /* Red - Danger states */
+
+  /* Background - Gradient Stops */
+  --bg-page-top: #0a0a0a;            /* Deep black (top) */
+  --bg-page-mid-1: #131313;          /* Dark charcoal */
+  --bg-page-mid-2: #1f1f1f;          /* Medium charcoal */
+  --bg-page-bottom: #2B2B2B;         /* Soft light (bottom) */
+
+  /* Background - Panels */
+  --bg-panel-primary: rgba(0, 0, 0, 0.5);
+  --bg-panel-secondary: rgba(43, 43, 43, 0.3);
+  --bg-panel-border: rgba(255, 255, 255, 0.2);
+
+  /* Text Colors */
+  --text-primary: #FFFFFF;           /* Pure white */
+  --text-secondary: #CCCCCC;         /* Light gray */
+  --text-muted: #888888;             /* Medium gray */
+  --text-accent: #FFD700;            /* Gold - for important values */
+  --text-disabled: #555555;          /* Dark gray */
+
+  /* ==================== Spacing (8px Grid) ==================== */
+
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+
+  /* ==================== Sizing ==================== */
+
+  /* Layout */
+  --header-height: 60px;
+  --tab-height: 50px;
+
+  /* Components */
+  --button-height: 36px;
+  --button-height-sm: 28px;
+  --input-height: 36px;
+  --icon-size: 24px;
+  --icon-size-sm: 16px;
+  --icon-size-lg: 32px;
+
+  /* ==================== Shadows ==================== */
+
+  --shadow-panel: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-button: 0 2px 4px rgba(0, 0, 0, 0.3);
+  --shadow-vignette: inset 0 0 8px rgba(0, 0, 0, 0.8);
+  --shadow-focus: 0 0 8px rgba(60, 179, 113, 0.6);
+  --shadow-text: 0 1px 3px rgba(0, 0, 0, 0.9);
+
+  /* Resource Bar Glows */
+  --shadow-hp-glow: 0 0 12px rgba(119, 0, 2, 0.4);
+  --shadow-fp-glow: 0 0 12px rgba(36, 89, 116, 0.4);
+  --shadow-ap-glow: 0 0 12px rgba(60, 179, 113, 0.4);
+  --shadow-temp-hp-glow: 0 0 12px rgba(255, 215, 0, 0.4);
+
+  /* ==================== Border Radius ==================== */
+
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-xl: 8px;
+
+  /* ==================== Transitions ==================== */
+
+  --transition-fast: 0.2s ease;
+  --transition-normal: 0.3s ease;
+  --transition-slow: 0.4s ease;
+}
+
+/* ==================== Global Styles ==================== */
+
+body,
+html,
+#__nuxt {
+  /* Background gradient (darkness above, soft light below) */
+  background: linear-gradient(
+    to bottom,
+    var(--bg-page-top) 0%,
+    var(--bg-page-mid-1) 30%,
+    var(--bg-page-mid-2) 70%,
+    var(--bg-page-bottom) 100%
+  );
+  background-attachment: fixed;
+  min-height: 100vh;
+  font-family: 'Cardo', Georgia, serif;
+  color: var(--text-primary);
+}
+
+/* ==================== Typography ==================== */
+
+h1, h2, h3, h4, h5, h6 {
+  letter-spacing: 0.05em;
+  color: var(--text-primary);
+}
+
+/* Character name font (Cinzel) */
+.character-name {
+  font-family: 'Cinzel', 'Cardo', serif;
+  font-weight: 600;
+}
+
+h1 {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+h2 {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+h3 {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+/* Accent values (level, souls, important numbers) */
+.accent-value {
+  color: var(--text-accent);
+  font-weight: 600;
+}
+
+/* ==================== Button Styles ==================== */
+
+/* Primary Button (Green - Affirmative) */
+.btn-primary {
+  background: linear-gradient(135deg,
+    var(--color-ap-gradient-start) 0%,
+    var(--color-primary) 50%,
+    var(--color-ap-gradient-end) 100%
+  );
+  color: var(--text-primary);
+  border: 1px solid #2d864f;
+  border-radius: var(--radius-md);
+  padding: 8px 16px;
+  height: var(--button-height);
+  box-shadow: var(--shadow-button);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+  transform: translateY(0);
+}
+
+/* Warning Button (Red - Negative/Danger) */
+.btn-warning {
+  background: linear-gradient(135deg,
+    var(--color-hp-gradient-start) 0%,
+    var(--color-warning) 50%,
+    var(--color-hp-gradient-end) 100%
+  );
+  color: var(--text-primary);
+  border: 1px solid #550001;
+  border-radius: var(--radius-md);
+  padding: 8px 16px;
+  height: var(--button-height);
+  box-shadow: var(--shadow-button);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  font-weight: 600;
+}
+
+.btn-warning:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-warning:active {
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+  transform: translateY(0);
+}
+
+/* Neutral Button (Blue - Info) */
+.btn-neutral {
+  background: linear-gradient(135deg,
+    var(--color-fp-gradient-start) 0%,
+    var(--color-info) 50%,
+    var(--color-fp-gradient-end) 100%
+  );
+  color: var(--text-primary);
+  border: 1px solid #143954;
+  border-radius: var(--radius-md);
+  padding: 8px 16px;
+  height: var(--button-height);
+  box-shadow: var(--shadow-button);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  font-weight: 600;
+}
+
+.btn-neutral:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+  transform: translateY(-1px);
+}
+
+/* Small Button Variants */
+.btn-primary-small,
+.btn-warning-small,
+.btn-neutral-small {
+  padding: 4px 8px;
+  height: var(--button-height-sm);
+  font-size: 0.9em;
+  border-radius: var(--radius-sm);
+}
+
+.btn-primary-small {
+  background: linear-gradient(135deg,
+    var(--color-ap-gradient-start) 0%,
+    var(--color-primary) 50%,
+    var(--color-ap-gradient-end) 100%
+  );
+  color: var(--text-primary);
+  border: 1px solid #2d864f;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  font-weight: 600;
+}
+
+.btn-warning-small {
+  background: linear-gradient(135deg,
+    var(--color-hp-gradient-start) 0%,
+    var(--color-warning) 50%,
+    var(--color-hp-gradient-end) 100%
+  );
+  color: var(--text-primary);
+  border: 1px solid #550001;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  font-weight: 600;
+}
+
+.btn-neutral-small {
+  background: linear-gradient(135deg,
+    var(--color-fp-gradient-start) 0%,
+    var(--color-info) 50%,
+    var(--color-fp-gradient-end) 100%
+  );
+  color: var(--text-primary);
+  border: 1px solid #143954;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  font-weight: 600;
+}
+
+.btn-primary-small:hover,
+.btn-warning-small:hover,
+.btn-neutral-small:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+/* Disabled Button */
+.btn-disabled,
+button:disabled {
+  background: #333333;
+  color: var(--text-disabled);
+  border: 1px solid #222222;
+  cursor: not-allowed;
+  opacity: 0.5;
+  filter: none !important;
+  transform: none !important;
+}
+
+/* ==================== Input Styles ==================== */
+
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="password"],
+textarea,
+select {
+  background: rgba(255, 255, 255, 0.9);
+  color: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 14px;
+  transition: var(--transition-normal);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border: 2px solid var(--color-primary);
+  box-shadow: var(--shadow-focus);
+}
+
+input:disabled,
+textarea:disabled,
+select:disabled {
+  background: rgba(200, 200, 200, 0.3);
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+/* ==================== Panel Styles ==================== */
+
+.panel-primary {
+  background: var(--bg-panel-primary);
+  border: 1px solid var(--bg-panel-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  box-shadow: var(--shadow-panel);
+}
+
+.panel-secondary {
+  background: var(--bg-panel-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  padding: 12px;
+}
+
+/* ==================== Utility Classes ==================== */
+
+.text-sm {
+  font-size: 14px;
+}
+
+.text-xs {
+  font-size: 12px;
+}
+
+/* ==================== Custom Scrollbar ==================== */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: var(--radius-md);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-primary);
+  border-radius: var(--radius-md);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ap-gradient-end);
+}

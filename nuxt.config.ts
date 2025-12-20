@@ -4,7 +4,7 @@ import tailwindConfig from "./tailwind.config";
 export default defineNuxtConfig({
   runtimeConfig: {
     public: {
-      API_BASE_URL: process.env.API_BASE_URL,
+      API_BASE_URL: process.env.API_BASE_URL || 'http://127.0.0.1:8000',
     }
   },
   components: [
@@ -13,7 +13,11 @@ export default defineNuxtConfig({
       pathPrefix: false,
     }
   ],
-  css: ['~/assets/css/main.css'],
+  css: [
+    // '~/assets/css/design-system.css', // BACKUP - old fixed px system
+    '~/assets/css/responsive-system.css', // ACTIVE - responsive design system
+    '~/assets/css/main.css'
+  ],
   typescript: {
     strict: true,
     typeCheck: true,
@@ -27,7 +31,8 @@ export default defineNuxtConfig({
   modules: ['@pinia/nuxt', '@nuxtjs/google-fonts', '@nuxt/ui', "nuxt-security"],
   googleFonts: {
     families: {
-      'EB+Garamond': true,
+      'Cardo': [400, 700],
+      'Cinzel': [400, 600, 700],
     },
     download: true,
     base64: false
