@@ -137,7 +137,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { usePlayerStore } from "~~/store/player"
 import ToggleSwitch from '~/components/UI/ToggleSwitch.vue'
 
@@ -172,6 +172,37 @@ const bonusFlatMagic = ref(playerStore.UserInputValues.BonusResistancesTemp.Flat
 const bonusFlatFire = ref(playerStore.UserInputValues.BonusResistancesTemp.FlatFire)
 const bonusFlatLightning = ref(playerStore.UserInputValues.BonusResistancesTemp.FlatLightning)
 const bonusFlatDark = ref(playerStore.UserInputValues.BonusResistancesTemp.FlatDark)
+
+// Watch for store changes and sync local refs (handles character reset/switch)
+watch(() => playerStore.UserInputValues.BonusResistancesActive, (newVal) => {
+  bonusActive.value = newVal
+})
+
+watch(() => playerStore.UserInputValues.BonusResistances, (newVal) => {
+  resistancePhysical.value = newVal.Physical
+  resistanceMagic.value = newVal.Magic
+  resistanceFire.value = newVal.Fire
+  resistanceLightning.value = newVal.Lightning
+  resistanceDark.value = newVal.Dark
+  flatPhysical.value = newVal.FlatPhysical
+  flatMagic.value = newVal.FlatMagic
+  flatFire.value = newVal.FlatFire
+  flatLightning.value = newVal.FlatLightning
+  flatDark.value = newVal.FlatDark
+}, { deep: true })
+
+watch(() => playerStore.UserInputValues.BonusResistancesTemp, (newVal) => {
+  bonusResistancePhysical.value = newVal.Physical
+  bonusResistanceMagic.value = newVal.Magic
+  bonusResistanceFire.value = newVal.Fire
+  bonusResistanceLightning.value = newVal.Lightning
+  bonusResistanceDark.value = newVal.Dark
+  bonusFlatPhysical.value = newVal.FlatPhysical
+  bonusFlatMagic.value = newVal.FlatMagic
+  bonusFlatFire.value = newVal.FlatFire
+  bonusFlatLightning.value = newVal.FlatLightning
+  bonusFlatDark.value = newVal.FlatDark
+}, { deep: true })
 
 function saveBonusActiveState(value: boolean) {
   playerStore.UserInputValues.BonusResistancesActive = value

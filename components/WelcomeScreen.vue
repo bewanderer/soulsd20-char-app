@@ -18,6 +18,12 @@
       </div>
 
       <p class="import-hint">Switching devices? Import your character from a JSON file.</p>
+
+      <div class="secondary-actions">
+        <NuxtLink to="/campaigns" class="campaigns-link">
+          Browse Campaigns
+        </NuxtLink>
+      </div>
     </div>
 
     <!-- Import Modal -->
@@ -68,7 +74,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { importCharacter } from '~/mixins/characterStorage'
+import { importCharacterWithSync } from '~/mixins/characterStorage'
 
 const router = useRouter()
 const showImportModal = ref(false)
@@ -106,7 +112,7 @@ function handleImport() {
     return
   }
 
-  const success = importCharacter(importJson.value)
+  const success = importCharacterWithSync(importJson.value)
 
   if (success) {
     // Navigate to character sheet after successful import
@@ -200,6 +206,21 @@ function handleImport() {
   color: #888;
   font-size: 0.9em;
   font-style: italic;
+}
+
+.secondary-actions {
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.campaigns-link,
+.campaigns-link:link,
+.campaigns-link:visited,
+.campaigns-link:hover {
+  color: #ffd700 !important;
+  text-decoration: none !important;
+  font-size: 1.1em;
 }
 
 .modal-overlay {

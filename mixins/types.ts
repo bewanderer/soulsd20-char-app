@@ -113,6 +113,10 @@ export interface Spell {
     stat: string;
     grade: string;
   }>;
+  // CF4: Protection data
+  damage_protection?: DamageProtection[];
+  buildup_protection?: BuildupProtection[];
+  condition_protection?: ConditionProtection[];
 }
 
 export interface Spirit {
@@ -133,6 +137,50 @@ export interface Spirit {
     stat: string;
     grade: string;
   }>;
+  // CF4: Protection data
+  damage_protection?: DamageProtection[];
+  buildup_protection?: BuildupProtection[];
+  condition_protection?: ConditionProtection[];
+}
+
+// CF4: Protection System Types
+export interface DamageProtection {
+  type: 'PHYSICAL' | 'MAGIC' | 'FIRE' | 'LIGHTNING' | 'DARK';
+  tiers: number;
+  flat: number;
+  dice_count: number;
+  dice_value: number;
+  percentage: number;
+  percentage_timing: 'INITIAL' | 'FINAL';
+  duration_turns: number;
+  duration_attacks: number;
+  apply_to_caster: boolean;
+  apply_to_target: boolean;
+  stacking: 'APPEND' | 'OVERWRITE';
+  scaling_source?: Record<string, any>;
+}
+
+export interface BuildupProtection {
+  type: 'BLEED' | 'POISON' | 'TOXIC' | 'FROST' | 'CURSE' | 'POISE';
+  flat: number;
+  dice_count: number;
+  dice_value: number;
+  percentage: number;
+  percentage_timing: 'INITIAL' | 'FINAL';
+  duration_turns: number;
+  duration_attacks: number;
+  apply_to_caster: boolean;
+  apply_to_target: boolean;
+  stacking: 'APPEND' | 'OVERWRITE';
+  scaling_source?: Record<string, any>;
+}
+
+export interface ConditionProtection {
+  condition: string;
+  duration_turns: number;
+  duration_attacks: number;
+  apply_to_caster: boolean;
+  apply_to_target: boolean;
 }
 
 export interface DestinyFeat {
@@ -162,6 +210,7 @@ export interface ObtainedWeaponProfFeat {
   source: 'natural' | 'dual_wielding_skilled' | 'dual_wielding_skilled_plus' |
           'dual_wielding_master' | 'dual_wielding_master_plus' |
           'musical_skilled_artist' | 'musical_master_artist' |
+          'halberd_two_in_one' | 'halberd_two_in_one_plus' | 'halberd_master_of_all_trades' |
           'protege_1' | 'protege_2' | 'protege_3';
   source_feat_id?: number;  // ID of the granting feat (for cascading un-obtain)
   is_greyed_out: boolean;   // True if obtained via DW or Musical (show in original tree as greyed)
@@ -197,6 +246,13 @@ export interface ProtegeFlags {
 export interface MusicalInstrumentsFeatFlags {
   skilled_artist_used: boolean;   // Has Skilled Artist choice been made?
   master_artist_used: boolean;    // Has Master Artist choice been made?
+}
+
+// Flags for Halberd cross-tree feat acquisition
+export interface HalberdFeatFlags {
+  two_in_one_used: boolean;           // Has Two in One (lv10) choice been made?
+  two_in_one_plus_used: boolean;      // Has Two in One+ (lv17) choice been made?
+  master_of_all_trades_used: boolean; // Has Master of All Trades (lv20) choice been made?
 }
 
 export interface WeaponFeats {
@@ -313,6 +369,10 @@ export interface UserInputValues {
   BonusResistancesActive: boolean;
   BonusResistancesTemp: InputValueResistances;
   Conditions: Conditions;
+
+  // Undying DC and Roll Mod - null means use calculated value
+  UndyingDC: number | null;
+  UndyingRollMod: number | null;
 }
 
 export interface Conditions {

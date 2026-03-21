@@ -12,152 +12,35 @@
         </button>
 
         <div v-if="isOpen" class="dropdown-menu">
-          <div class="character-list">
-            <div
-              v-for="character in characters"
-              :key="character.uuid"
-              class="character-item"
-              :class="{ active: character.uuid === activeUuid }"
-            >
-              <div class="character-name-row" @click="selectCharacter(character.uuid)">
-                <span class="name">{{ character.name }}</span>
+          <!-- Current character info and actions -->
+          <div v-if="currentCharacter" class="character-item active">
+            <div class="character-details-row">
+              <div class="character-meta">
+                <span class="level">Lv {{ currentCharacter.souls_level || currentCharacter.level || 1 }}</span>
+                <span class="background">{{ getBackgroundName(currentCharacter.background_id) }}</span>
               </div>
-              <div class="character-details-row">
-                <div class="character-meta" @click="selectCharacter(character.uuid)">
-                  <span class="level">Lv {{ character.souls_level || character.level || 1 }}</span>
-                  <span class="background">{{ getBackgroundName(character.background_id) }}</span>
-                </div>
-                <div class="character-actions">
-                  <button
-                    @click.stop="exportCharacter(character.uuid)"
-                    class="action-btn btn-neutral-small"
-                    title="Export character"
-                  >
-                    Export
-                  </button>
-                  <button
-                    @click.stop="confirmReset(character.uuid, character.name, character.background_id)"
-                    class="action-btn btn-warning-small"
-                    title="Reset character to level 1"
-                  >
-                    Reset
-                  </button>
-                  <button
-                    @click.stop="confirmDelete(character.uuid, character.name)"
-                    class="action-btn btn-warning-small"
-                    title="Delete character"
-                  >
-                    Delete
-                  </button>
-                </div>
+              <div class="character-actions">
+                <button
+                  @click.stop="confirmReset(currentCharacter.uuid, currentCharacter.name, currentCharacter.background_id)"
+                  class="action-btn btn-warning-small"
+                  title="Reset character"
+                >
+                  Reset
+                </button>
+                <button
+                  @click.stop="confirmDelete(currentCharacter.uuid, currentCharacter.name)"
+                  class="action-btn btn-warning-small"
+                  title="Delete character"
+                >
+                  Delete
+                </button>
               </div>
             </div>
           </div>
 
-          <div class="dropdown-actions">
-            <button
-              @click="createNewCharacter"
-              class="action-button btn-primary"
-              :disabled="characters.length >= 10"
-            >
-              + Create New ({{ characters.length }}/10)
-            </button>
-            <button
-              @click="showBulkModal = true"
-              class="action-button bulk-options-btn"
-            >
-              Bulk Options
-            </button>
-          </div>
         </div>
       </div>
     </div>
-
-    <!-- Bulk Options Modal -->
-    <Teleport to="body">
-      <div v-if="showBulkModal" class="modal-overlay" @click.self="showBulkModal = false">
-        <div class="modal-content">
-        <h2 class="modal-title">Bulk Options</h2>
-
-        <div class="bulk-actions">
-          <div class="bulk-action-card">
-            <h3>Export All Characters</h3>
-            <p>Download all {{ characters.length }} characters as a single JSON file.</p>
-            <button @click="exportAll" class="action-button bulk-options-btn">
-              Export All
-            </button>
-          </div>
-
-          <div class="bulk-action-card">
-            <h3>Import Characters</h3>
-            <p>Import one or more characters from a JSON file.</p>
-            <input
-              type="file"
-              ref="bulkFileInput"
-              accept=".json"
-              @change="handleBulkImport"
-              style="display: none"
-            />
-            <button @click="bulkFileInput?.click()" class="action-button btn-primary">
-              Import Characters
-            </button>
-          </div>
-
-          <div class="bulk-action-card">
-            <h3>Export Notes</h3>
-            <p>Download your notes as a standalone JSON file.</p>
-            <button @click="handleExportNotes" class="action-button bulk-options-btn">
-              Export Notes
-            </button>
-          </div>
-
-          <div class="bulk-action-card">
-            <h3>Export Compendium</h3>
-            <p>Download your personal compendium as a standalone JSON file.</p>
-            <button @click="handleExportCompendium" class="action-button bulk-options-btn">
-              Export Compendium
-            </button>
-          </div>
-
-          <div class="bulk-action-card">
-            <h3>Export Everything</h3>
-            <p>Download your active character with notes and compendium.</p>
-            <button @click="handleExportEverything" class="action-button bulk-options-btn">
-              Export Everything
-            </button>
-          </div>
-
-          <div class="bulk-action-card">
-            <h3>Import Notes/Compendium</h3>
-            <p>Import notes or compendium from a JSON file.</p>
-            <input
-              type="file"
-              ref="notesFileInput"
-              accept=".json"
-              @change="handleImportNotesOrCompendium"
-              style="display: none"
-            />
-            <button @click="notesFileInput?.click()" class="action-button btn-primary">
-              Import
-            </button>
-          </div>
-        </div>
-
-        <div v-if="bulkImportResult" class="import-result">
-          <p v-if="bulkImportResult.success > 0" class="success">
-            ✓ Successfully imported {{ bulkImportResult.success }} character(s)
-          </p>
-          <p v-if="bulkImportResult.failed > 0" class="error">
-            ✗ Failed to import {{ bulkImportResult.failed }} character(s)
-          </p>
-        </div>
-
-        <div class="modal-actions">
-          <button @click="closeBulkModal" class="close-btn btn-neutral">Close</button>
-        </div>
-      </div>
-      </div>
-    </Teleport>
 
     <!-- Delete Confirmation Modal -->
     <Teleport to="body">
@@ -176,12 +59,29 @@
       </div>
     </Teleport>
 
+    <!-- Import Mode Selection Modal -->
+    <Teleport to="body">
+      <div v-if="importModePrompt" class="modal-overlay" @click.self="cancelImport">
+        <div class="modal-content small">
+          <h2 class="modal-title">Import {{ importModePrompt.type === 'notes' ? 'Notes' : importModePrompt.type === 'compendium' ? 'Compendium' : 'Notes & Compendium' }}</h2>
+          <p class="warning-text">
+            How would you like to import this data?
+          </p>
+          <div class="modal-actions import-actions">
+            <button @click="executeImport('replace')" class="action-button btn-warning">Replace all existing entries</button>
+            <button @click="executeImport('merge')" class="action-button btn-primary">Merge (keep both)</button>
+            <button @click="cancelImport" class="cancel-btn btn-neutral">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- Reset Character Modal -->
     <ResetCharacterModal
       :isOpen="!!resetConfirm"
       :characterName="resetConfirm?.name || ''"
       @close="resetConfirm = null"
-      @confirm="executeReset"
+      @confirm="(fullReset: boolean) => executeReset(fullReset)"
     />
   </ClientOnly>
 </template>
@@ -194,11 +94,11 @@ import { usePlayerStore } from '~/store/player'
 import {
   getAllCharacters,
   setActiveCharacter,
-  deleteCharacter,
-  resetCharacter,
+  deleteCharacterWithSync,
+  resetCharacterWithSync,
   downloadCharacterAsFile,
   downloadAllCharactersAsFile,
-  importMultipleCharacters
+  importMultipleCharactersWithSync
 } from '~/mixins/characterStorage'
 import {
   exportNotes,
@@ -269,10 +169,11 @@ function confirmDelete(uuid: string, name: string) {
 function executeDelete() {
   if (!deleteConfirm.value) return
 
-  const success = deleteCharacter(deleteConfirm.value.uuid)
+  const success = deleteCharacterWithSync(deleteConfirm.value.uuid)
   if (success) {
     characterList.value = getAllCharacters()
     deleteConfirm.value = null
+    router.push('/campaigns')
   }
 }
 
@@ -280,7 +181,7 @@ function confirmReset(uuid: string, name: string, backgroundId: number) {
   resetConfirm.value = { uuid, name, backgroundId }
 }
 
-async function executeReset() {
+async function executeReset(fullReset: boolean = false) {
   if (!resetConfirm.value) return
 
   const background = compendiumStore.getBackgroundById(resetConfirm.value.backgroundId)
@@ -289,7 +190,7 @@ async function executeReset() {
     return
   }
 
-  const success = resetCharacter(resetConfirm.value.uuid, background)
+  const success = resetCharacterWithSync(resetConfirm.value.uuid, background, fullReset)
   if (success) {
     characterList.value = getAllCharacters()
     // Reload active character if it was the one reset
@@ -297,6 +198,8 @@ async function executeReset() {
       playerStore.loadActiveCharacter()
       // Force UI update
       await nextTick()
+      // Trigger mandatory level up modal (character is now level 0)
+      playerStore.initializeLevel1LevelUp()
     }
     resetConfirm.value = null
   }
@@ -315,7 +218,7 @@ function handleBulkImport(event: Event) {
   const reader = new FileReader()
   reader.onload = (e) => {
     const jsonString = e.target?.result as string
-    const result = importMultipleCharacters(jsonString)
+    const result = importMultipleCharactersWithSync(jsonString)
     bulkImportResult.value = result
     characterList.value = getAllCharacters()
 
@@ -367,6 +270,9 @@ function handleExportEverything() {
   downloadAsFile(jsonContent, `${charName}_full_${timestamp}.json`)
 }
 
+// Import state for modal-based flow
+const importModePrompt = ref<{ type: string; jsonString: string } | null>(null)
+
 function handleImportNotesOrCompendium(event: Event) {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
@@ -383,30 +289,13 @@ function handleImportNotesOrCompendium(event: Event) {
       return
     }
 
-    // Ask user for import mode
-    const useReplace = confirm(
-      'Replace existing data?\n\nYes = Replace all existing data\nNo = Merge (keep both)'
-    )
-    const mode = useReplace ? 'replace' : 'merge'
-
-    let success = false
-    let message = ''
-
-    if (importType === 'notes') {
-      success = importNotes(jsonString, mode)
-      message = success ? 'Notes imported successfully!' : 'Failed to import notes'
-    } else if (importType === 'compendium') {
-      success = importCompendium(jsonString, mode)
-      message = success ? 'Compendium imported successfully!' : 'Failed to import compendium'
-    } else if (importType === 'both') {
-      const result = importNotes(jsonString, mode) && importCompendium(jsonString, mode)
-      success = result
-      message = success ? 'Notes and Compendium imported successfully!' : 'Failed to import data'
-    } else if (importType === 'character') {
-      message = 'This is a character file. Use "Import Characters" instead.'
+    if (importType === 'character') {
+      alert('This is a character file. Use the dashboard to import characters.')
+      return
     }
 
-    alert(message)
+    // Show modal for replace/merge choice
+    importModePrompt.value = { type: importType, jsonString }
   }
   reader.readAsText(file)
 
@@ -414,6 +303,32 @@ function handleImportNotesOrCompendium(event: Event) {
   if (notesFileInput.value) {
     notesFileInput.value.value = ''
   }
+}
+
+function executeImport(mode: 'replace' | 'merge') {
+  if (!importModePrompt.value) return
+  const { type, jsonString } = importModePrompt.value
+
+  let success = false
+  let message = ''
+
+  if (type === 'notes') {
+    success = importNotes(jsonString, mode)
+    message = success ? 'Notes imported successfully!' : 'Failed to import notes'
+  } else if (type === 'compendium') {
+    success = importCompendium(jsonString, mode)
+    message = success ? 'Compendium imported successfully!' : 'Failed to import compendium'
+  } else if (type === 'both') {
+    success = importNotes(jsonString, mode) && importCompendium(jsonString, mode)
+    message = success ? 'Notes and Compendium imported successfully!' : 'Failed to import data'
+  }
+
+  importModePrompt.value = null
+  alert(message)
+}
+
+function cancelImport() {
+  importModePrompt.value = null
 }
 
 // Refresh character list on mount
@@ -766,6 +681,20 @@ onMounted(() => {
   display: flex;
   gap: 15px;
   justify-content: flex-end;
+}
+
+.import-actions {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.625em;
+}
+
+.import-actions .action-button,
+.import-actions .cancel-btn {
+  text-align: center;
+  padding: 0.75em 1.5em;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .cancel-btn, .close-btn, .delete-confirm-btn {

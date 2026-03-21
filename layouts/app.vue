@@ -1,62 +1,56 @@
 <template>
   <div id="app">
-    <!-- Toast notifications -->
-    <ToastContainer />
+    <ClientOnly>
+      <!-- Toast notifications -->
+      <ToastContainer />
 
-    <!-- Custom scroll indicator -->
-    <ScrollIndicator />
+      <!-- Custom scroll indicator -->
+      <ScrollIndicator />
+
+      <!-- Global User Menu for authenticated users -->
+      <div v-if="isAuthenticated" class="global-user-menu">
+        <UserMenu />
+      </div>
+
+      <!-- Loading overlay while compendium loads -->
+      <LoadingOverlay />
+    </ClientOnly>
 
     <slot />
   </div>
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import { useCompendiumStore } from '~~/store/compendium'
 import { usePlayerStore } from '~~/store/player'
 import { useToastStore } from '~~/store/toast'
 import { setupGlobalErrorHandler } from '~~/composables/useErrorHandler'
+import { useAuth } from '~~/composables/useAuth'
+import UserMenu from '~~/components/TopBar/UserMenu.vue'
+import LoadingOverlay from '~~/components/UI/LoadingOverlay.vue'
+
+const auth = useAuth()
+const isAuthenticated = computed(() => auth.isAuthenticated.value)
+
+// Note: Foundry sync is now handled by the plugin (plugins/foundry-sync.client.ts)
+// It connects automatically on app load and persists across HMR
 
 const compendiumStore = useCompendiumStore()
 const playerStore = usePlayerStore()
 const toast = useToastStore()
-const autoSave = useAutoSave(30) // Auto-save every 30 seconds
 
 useHead({
   title: 'Souls D20 Companion'
 })
 
-onBeforeMount(async () => {
+onBeforeMount(() => {
   // Setup global error handling
   setupGlobalErrorHandler()
-
-  // Load compendium data from API
-  try {
-    await compendiumStore.getCompendium()
-    console.log('Compendium loaded successfully')
-  } catch (error) {
-    console.error('Failed to load compendium:', error)
-    toast.error('Failed to load game data', 'Please check your connection and refresh the page')
-  }
-
-  // IMPORTANT: Do NOT setup auto-save here
-  // Auto-save watchers must be set up AFTER character is loaded
-  // This is now handled in pages/index.vue after loadActiveCharacter()
-
-  // Start periodic backup interval (independent of watchers)
-  autoSave.start()
+  // Compendium is loaded by plugins/compendium.client.ts on app startup
 })
 
-// Save character before page unload
-onBeforeUnmount(() => {
-  try {
-    playerStore.save()
-    autoSave.stop()
-  } catch (error) {
-    console.error('Failed to save on unmount:', error)
-  }
-})
-
-// Save before window closes
+// Save before window closes (safety net)
 if (process.client) {
   window.addEventListener('beforeunload', () => {
     try {
@@ -87,6 +81,13 @@ if (process.client) {
     -webkit-appearance: none;
     margin: 0;
   }
+}
+
+.global-user-menu {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  z-index: 1000;
 }
 
 body {

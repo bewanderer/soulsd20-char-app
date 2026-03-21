@@ -144,6 +144,38 @@
               class="mb-3"
             />
 
+            <!-- Undying DC and Roll Mod -->
+            <div class="flex flex-col space-y-2 justify-between w-full stat-container mb-3">
+              <div class="undying-option">
+                <span class="undying-label">Undying DC</span>
+                <div class="undying-input-wrapper">
+                  <input
+                    type="number"
+                    :value="displayedUndyingDC"
+                    :placeholder="String(calculatedUndyingDC)"
+                    class="undying-input"
+                    @input="displayedUndyingDC = Number(($event.target as HTMLInputElement).value)"
+                    @blur="onUndyingDCBlur"
+                  />
+                  <FieldComment fieldKey="UndyingDC" fieldLabel="Undying DC" />
+                </div>
+              </div>
+              <div class="undying-option">
+                <span class="undying-label">Undying Roll Mod</span>
+                <div class="undying-input-wrapper">
+                  <input
+                    type="number"
+                    :value="displayedUndyingRollMod"
+                    :placeholder="String(calculatedUndyingRollMod)"
+                    class="undying-input"
+                    @input="displayedUndyingRollMod = Number(($event.target as HTMLInputElement).value)"
+                    @blur="onUndyingRollModBlur"
+                  />
+                  <FieldComment fieldKey="UndyingRollMod" fieldLabel="Undying Roll Mod" />
+                </div>
+              </div>
+            </div>
+
             <div class="flex flex-col space-y-2 justify-between w-full stat-container mb-6">
               <CharacterGeneralOption
                 name="Max HP bonus"
@@ -256,7 +288,7 @@
                 />
                   
                 <CharacterStatOption
-                  name="Fire Keeping"
+                  name="Firekeeping"
                   identifier="FireKeeping"
                   sType="skill"
                   :statAmount="playerStore.CharacterStats.Skills.FireKeeping"
@@ -399,12 +431,102 @@
 <script setup lang="ts">
 import { usePlayerStore } from '@/store/player'
 import { useCompendiumStore } from '@/store/compendium'
+import { statMod } from '@/mixins/utils'
 import LineageAbilities from './LineageAbilities.vue'
 import CalculatedAttributeOption from './CalculatedAttributeOption.vue'
 import HealthDieOption from './HealthDieOption.vue'
+import FieldComment from '~/components/UI/FieldComment.vue'
 
 const playerStore = usePlayerStore()
 const compendiumStore = useCompendiumStore()
+
+// Undying DC table: [undyingCount][levelBracket] = rollToBeat
+// DC = rollToBeat + 1 (must roll HIGHER than rollToBeat)
+const undyingDCTable: Record<number, number[]> = {
+  0: [5, 4, 3, 2, 1, 1],  // L1-6, L7-13, L14-20, L21-27, L28-34, L35+
+  1: [8, 7, 6, 5, 4, 3],
+  2: [11, 10, 9, 8, 7, 6],
+  3: [14, 13, 12, 11, 10, 9],
+  4: [17, 16, 15, 14, 13, 12],
+  5: [19, 19, 18, 17, 16, 15]
+}
+
+// Get level bracket index (0-5)
+function getLevelBracket(level: number): number {
+  if (level <= 6) return 0
+  if (level <= 13) return 1
+  if (level <= 20) return 2
+  if (level <= 27) return 3
+  if (level <= 34) return 4
+  return 5 // 35+
+}
+
+// Check if lineage is Ferno
+const isFernoLineage = computed(() => {
+  if (!playerStore.LineageId) return false
+  const lineage = compendiumStore.getLineageById(playerStore.LineageId)
+  return lineage?.name?.toLowerCase() === 'ferno'
+})
+
+// Calculate base Undying DC (before user override)
+const calculatedUndyingDC = computed(() => {
+  const undyingCount = Math.min(Math.max(playerStore.Undying, 0), 5)
+  const levelBracket = getLevelBracket(playerStore.Level)
+  const rollToBeat = undyingDCTable[undyingCount]?.[levelBracket] ?? 5
+  let dc = rollToBeat + 1 // DC = rollToBeat + 1
+
+  // Ferno lineage reduces DC by 1 at level 11+
+  if (isFernoLineage.value && playerStore.Level >= 11) {
+    dc = Math.max(1, dc - 1)
+  }
+
+  return dc
+})
+
+// Calculate base Undying Roll Mod (before user override)
+const calculatedUndyingRollMod = computed(() => {
+  const faiMod = statMod(playerStore.CharacterStats.Stats.Faith)
+  if (faiMod >= 0) {
+    // Positive: half rounded down
+    return Math.floor(faiMod / 2)
+  }
+  // Negative: full modifier
+  return faiMod
+})
+
+// Displayed/editable values (use override if set, otherwise calculated)
+const displayedUndyingDC = computed({
+  get: () => playerStore.UserInputValues.UndyingDC ?? calculatedUndyingDC.value,
+  set: (val: number | null) => {
+    playerStore.UserInputValues.UndyingDC = val
+    playerStore.save()
+  }
+})
+
+const displayedUndyingRollMod = computed({
+  get: () => playerStore.UserInputValues.UndyingRollMod ?? calculatedUndyingRollMod.value,
+  set: (val: number | null) => {
+    playerStore.UserInputValues.UndyingRollMod = val
+    playerStore.save()
+  }
+})
+
+// Handle blur events to auto-fill with calculated value if empty
+function onUndyingDCBlur(event: Event) {
+  const input = event.target as HTMLInputElement
+  if (input.value === '' || isNaN(Number(input.value))) {
+    playerStore.UserInputValues.UndyingDC = null
+    playerStore.save()
+  }
+}
+
+function onUndyingRollModBlur(event: Event) {
+  const input = event.target as HTMLInputElement
+  if (input.value === '' || isNaN(Number(input.value))) {
+    playerStore.UserInputValues.UndyingRollMod = null
+    playerStore.save()
+  }
+}
 
 // Auto-resize textarea based on content
 function autoResize(event: Event) {
@@ -712,5 +834,67 @@ const calculateMaxEquipLoad = computed(() => {
     width: 100%;
     min-height: 50vh;
   }
+}
+
+/* Undying DC and Roll Mod styles */
+.undying-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 0.25rem 0.5rem;
+  background: var(--color-bg-tertiary);
+  border: var(--border-width-thin) solid var(--color-border-primary);
+  border-radius: var(--border-radius-sm);
+  transition: var(--transition-hover);
+}
+
+.undying-option:hover {
+  border-color: var(--color-accent-gold);
+  box-shadow: var(--shadow-gold-soft);
+}
+
+.undying-label {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.undying-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.undying-input {
+  width: 3rem;
+  padding: 0.25rem;
+  text-align: center;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  border: var(--border-width-thin) solid var(--color-border-primary);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-sm);
+}
+
+.undying-input:focus {
+  border-color: var(--color-accent-gold-bright);
+  box-shadow: var(--shadow-gold-soft);
+  outline: none;
+}
+
+.undying-input::placeholder {
+  color: var(--color-text-tertiary);
+  opacity: 0.7;
+}
+
+/* Hide number input spinners */
+.undying-input::-webkit-inner-spin-button,
+.undying-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.undying-input {
+  -moz-appearance: textfield;
 }
 </style>

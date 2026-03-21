@@ -619,6 +619,21 @@
       </div>
     </div>
   </div>
+
+  <!-- Import Mode Modal -->
+  <Teleport to="body">
+    <div v-if="importPending" class="import-modal-overlay" @click.self="importPending = null">
+      <div class="import-modal-content">
+        <h2 class="import-modal-title">Import Compendium</h2>
+        <p class="import-modal-text">How would you like to import this data?</p>
+        <div class="import-modal-actions">
+          <button @click="executeCompendiumImport('replace')" class="import-btn import-btn-replace">Replace all existing entries</button>
+          <button @click="executeCompendiumImport('merge')" class="import-btn import-btn-merge">Merge (keep both)</button>
+          <button @click="importPending = null" class="import-btn import-btn-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -663,6 +678,17 @@ const resistanceTypes = Object.values(ResistanceType)
 const statusTypes = Object.values(StatusType)
 
 const entries = computed(() => playerStore.Compendium.entries || [])
+
+// Watch for entries changes and clear selectedEntry if it's no longer in the list
+// This handles character reset scenarios where compendium gets wiped
+watch(entries, (newEntries) => {
+  if (selectedEntry.value) {
+    const stillExists = newEntries.some(e => e.id === selectedEntry.value.id)
+    if (!stillExists) {
+      selectedEntry.value = null
+    }
+  }
+}, { deep: true })
 
 const filteredEntries = computed(() => {
   let result = [...entries.value]
@@ -959,6 +985,9 @@ function handleImportCompendium() {
   fileInput.value?.click()
 }
 
+// Import modal state
+const importPending = ref<string | null>(null)
+
 function onFileSelected(event: Event) {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
@@ -967,21 +996,20 @@ function onFileSelected(event: Event) {
 
   const reader = new FileReader()
   reader.onload = (e) => {
-    const jsonString = e.target?.result as string
-
-    const useReplace = confirm(
-      'Replace existing compendium?\n\nYes = Replace all existing entries\nNo = Merge (keep both)'
-    )
-    const mode = useReplace ? 'replace' : 'merge'
-
-    const success = importCompendium(jsonString, mode)
-    alert(success ? 'Compendium imported successfully!' : 'Failed to import compendium')
+    importPending.value = e.target?.result as string
   }
   reader.readAsText(file)
 
   if (fileInput.value) {
     fileInput.value.value = ''
   }
+}
+
+function executeCompendiumImport(mode: 'replace' | 'merge') {
+  if (!importPending.value) return
+  const success = importCompendium(importPending.value, mode)
+  importPending.value = null
+  alert(success ? 'Compendium imported successfully!' : 'Failed to import compendium')
 }
 
 function getTypeBadgeClass(type: string): string {
@@ -1761,5 +1789,85 @@ function generateUUID(): string {
 /* Percent Symbol */
 .percent-symbol {
   color: var(--color-text-tertiary);
+}
+
+/* Import Modal */
+.import-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.import-modal-content {
+  background: rgba(25, 25, 30, 0.98);
+  border: 0.0625rem solid rgba(255, 215, 0, 0.2);
+  border-radius: 0.75rem;
+  padding: clamp(1.5rem, 2.5vw, 1.875rem);
+  max-width: clamp(22rem, 35vw, 28rem);
+  width: 90%;
+}
+
+.import-modal-title {
+  color: var(--color-gold-primary);
+  font-size: clamp(1.1rem, 1.4vw, 1.3rem);
+  margin: 0 0 0.75em 0;
+}
+
+.import-modal-text {
+  color: #ccc;
+  margin-bottom: 1.25em;
+}
+
+.import-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625em;
+}
+
+.import-btn {
+  width: 100%;
+  padding: 0.75em 1.5em;
+  border-radius: 0.375rem;
+  font-size: clamp(0.85rem, 1vw, 0.95rem);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.import-btn-replace {
+  background: var(--color-btn-danger-bg);
+  border: 0.0625rem solid var(--color-btn-danger-border);
+  color: var(--color-btn-danger-text);
+}
+
+.import-btn-replace:hover {
+  background: var(--color-btn-danger-bg-hover);
+}
+
+.import-btn-merge {
+  background: rgba(60, 179, 113, 0.12);
+  border: 0.0625rem solid rgba(60, 179, 113, 0.4);
+  color: var(--color-green-primary);
+}
+
+.import-btn-merge:hover {
+  background: rgba(60, 179, 113, 0.2);
+  border-color: var(--color-green-primary);
+}
+
+.import-btn-cancel {
+  background: transparent;
+  border: 0.0625rem solid rgba(255, 255, 255, 0.2);
+  color: #ccc;
+}
+
+.import-btn-cancel:hover {
+  border-color: rgba(255, 255, 255, 0.4);
 }
 </style>

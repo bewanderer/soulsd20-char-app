@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { watch } from 'vue'
+import { useNuxtApp } from '#app'
 import { useCompendiumStore } from '~~/store/compendium'
 import {
   CharacterStats,
@@ -17,10 +18,11 @@ import {
   DualWieldingFeatFlags,
   ProtegeFlags,
   MusicalInstrumentsFeatFlags,
+  HalberdFeatFlags,
 } from '@/mixins/types'
 import {
   getActiveCharacter,
-  updateCharacter,
+  updateCharacterWithSync,
   downloadCharacterAsFile,
   migrateCharacterData,
   type StoredCharacter
@@ -70,6 +72,7 @@ type RootState = {
     active: boolean;
     targetLevel: number;
     isEvenLevel: boolean;
+    mandatory: boolean;  // Cannot close modal until completed (for Level 1 from character creation)
 
     // HP & Stats & Knowledge
     hpRoll: number | null;
@@ -99,7 +102,6 @@ type RootState = {
   UserInputValues: UserInputValues;
 
   FatePoints: number;
-  DestinyFeatSlots: number;
   DodgeCostOverride: number | null;
   DodgeDistanceOverride: number | null;
   ItemUsageCostOverride: number | null;
@@ -131,6 +133,7 @@ type RootState = {
   ObtainedWeaponProfFeats: ObtainedWeaponProfFeat[];  // Obtained weapon proficiency feats
   DualWieldingFeatFlags: DualWieldingFeatFlags;       // Flags for Dual Wielding cross-tree acquisition
   MusicalInstrumentsFeatFlags: MusicalInstrumentsFeatFlags;  // Flags for Musical Instruments cross-tree acquisition
+  HalberdFeatFlags: HalberdFeatFlags;                 // Flags for Halberd cross-tree acquisition
   ProtegeFlags: ProtegeFlags;                         // Flags for Protege cross-tree acquisition
   TemporaryFatePoints: number;                        // Temporary fate points (from DW Master Wielder+)
   DestinyFeats: DestinyFeat[];
@@ -150,6 +153,8 @@ type RootState = {
   CombatSettings: CombatSettings;
   CharacterImagePath: string; // Base64 encoded character image
   _autoSaveInitialized: boolean; // Internal flag to prevent duplicate auto-save setup
+  isLoadingCharacter: boolean; // Internal flag to prevent saves during character loading
+  isDirty: boolean; // Track if data changed since last save
 }
 
 export const usePlayerStore = defineStore({
@@ -260,7 +265,11 @@ export const usePlayerStore = defineStore({
         Staggered: false,
         Frenzied: false,
         Berzerk: false,
-      }
+      },
+
+      // Undying DC and Roll Mod - null means use calculated value
+      UndyingDC: null,
+      UndyingRollMod: null
     },
 
     Inventory: [],
@@ -277,7 +286,6 @@ export const usePlayerStore = defineStore({
       Ring5: null,
     },
     FatePoints: 2,
-    DestinyFeatSlots: 0,
     DodgeCostOverride: null,
     DodgeDistanceOverride: null,
     ItemUsageCostOverride: null,
@@ -317,6 +325,11 @@ export const usePlayerStore = defineStore({
     MusicalInstrumentsFeatFlags: {
       skilled_artist_used: false,
       master_artist_used: false
+    },
+    HalberdFeatFlags: {
+      two_in_one_used: false,
+      two_in_one_plus_used: false,
+      master_of_all_trades_used: false
     },
     ProtegeFlags: {
       protege_1_lv3_obtained: false,
@@ -423,7 +436,9 @@ export const usePlayerStore = defineStore({
       mainHandModifications: { isModified: false },
       offHandModifications: { isModified: false }
     },
-    _autoSaveInitialized: false
+    _autoSaveInitialized: false,
+    isLoadingCharacter: false,  // Flag to prevent saves during character loading
+    isDirty: false  // Flag to track if data changed since last save
   } as RootState),
 
   actions: {
@@ -431,8 +446,30 @@ export const usePlayerStore = defineStore({
     save() {
       if (!this.UUID) {
         // No character loaded, nothing to save
+        console.log('[SD20 Store] save() skipped: no UUID loaded')
         return false
       }
+
+      // Prevent saving during character loading
+      if (this.isLoadingCharacter) {
+        console.log('[SD20 Store] save() skipped: isLoadingCharacter flag is set')
+        console.log('Skipping save - character is being loaded')
+        return false
+      }
+
+      // Prevent saving while API sync is pulling data
+      try {
+        const { isSyncInProgress } = require('~/composables/useCharacterSync')
+        if (isSyncInProgress()) {
+          console.log('[SD20 Store] save() skipped: API sync in progress')
+          console.log('Skipping save - API sync in progress')
+          return false
+        }
+      } catch {
+        // useCharacterSync not available yet
+      }
+
+      console.log(`[SD20 Store] save() saving character: "${this.Name}" (uuid=${this.UUID})`)
 
       const characterData: Partial<StoredCharacter> = {
         name: this.Name,
@@ -564,6 +601,10 @@ export const usePlayerStore = defineStore({
         // Damage Calculator - Bonus Resistances Active toggle
         bonus_resistances_active: this.UserInputValues.BonusResistancesActive,
 
+        // Undying DC and Roll Mod overrides
+        undying_dc: this.UserInputValues.UndyingDC,
+        undying_roll_mod: this.UserInputValues.UndyingRollMod,
+
         // Resistances
         resistances: {
           Physical: this.CharacterStats.Resistances.Physical,
@@ -624,10 +665,10 @@ export const usePlayerStore = defineStore({
         weapon_proficiencies: { ...this.WeaponProficiencies },
         dual_wielding_feat_flags: this.DualWieldingFeatFlags,
         musical_instruments_feat_flags: this.MusicalInstrumentsFeatFlags,
+        halberd_feat_flags: this.HalberdFeatFlags,
         protege_flags: this.ProtegeFlags,
         temporary_fate_points: this.TemporaryFatePoints,
         fate_points: this.FatePoints,
-        destiny_feat_slots: this.DestinyFeatSlots,
 
         // Notes and Compendium
         notes: this.Notes,
@@ -645,10 +686,8 @@ export const usePlayerStore = defineStore({
         multi_proficient_retroactive_points: this.MultiProficientRetroactivePoints,
       }
 
-      const success = updateCharacter(this.UUID, characterData)
-      if (success) {
-        console.log('Character saved to localStorage (comprehensive)')
-      } else {
+      const success = updateCharacterWithSync(this.UUID, characterData)
+      if (!success) {
         console.error('Failed to save character')
       }
       return success
@@ -717,6 +756,11 @@ export const usePlayerStore = defineStore({
       this.MusicalInstrumentsFeatFlags = {
         skilled_artist_used: false,
         master_artist_used: false
+      }
+      this.HalberdFeatFlags = {
+        two_in_one_used: false,
+        two_in_one_plus_used: false,
+        master_of_all_trades_used: false
       }
       this.ProtegeFlags = {
         protege_1_lv3_obtained: false,
@@ -884,7 +928,11 @@ export const usePlayerStore = defineStore({
           Staggered: false,
           Frenzied: false,
           Berzerk: false
-        }
+        },
+
+        // Undying DC and Roll Mod - null means use calculated value
+        UndyingDC: null,
+        UndyingRollMod: null
       }
 
       // Reset notes, compendium, companions
@@ -905,21 +953,33 @@ export const usePlayerStore = defineStore({
         mainHandModifications: { isModified: false },
         offHandModifications: { isModified: false }
       }
+
+      // Reset internal flags so auto-save can be re-initialized for next character
+      this._autoSaveInitialized = false
+      this.isLoadingCharacter = false
+      this.isDirty = false
     },
 
     // Load active character from multi-character storage
     loadActiveCharacter() {
+      // Set loading flag to prevent saves during load
+      this.isLoadingCharacter = true
+
       // Run migration first to add weapon_proficiencies field to old characters
       migrateCharacterData()
 
       const activeChar = getActiveCharacter()
       if (!activeChar) {
         console.log('No active character found')
+        this.isLoadingCharacter = false
         return false
       }
 
       // DO NOT reset to defaults - this was resetting FatePoints on every page load!
       // resetToDefaults() should only be called by the Reset Character modal
+
+      // Get compendium store for hydrating attuned items and feats from API data
+      const compendiumStore = useCompendiumStore()
 
       // Basic info
       this.UUID = activeChar.uuid
@@ -932,7 +992,6 @@ export const usePlayerStore = defineStore({
 
       // Fate Points
       this.FatePoints = (activeChar as any).fate_points !== undefined ? (activeChar as any).fate_points : 2
-      this.DestinyFeatSlots = (activeChar as any).destiny_feat_slots !== undefined ? (activeChar as any).destiny_feat_slots : 1
 
       // Creation data
       this.LineageId = activeChar.lineage_id
@@ -1024,48 +1083,50 @@ export const usePlayerStore = defineStore({
         this.UserInputValues.CurrentStatuses.Poise = activeChar.current_statuses.Poise || 0
       }
 
-      // Status bonuses
-      if (activeChar.bonus_statuses) {
-        this.UserInputValues.BonusStatuses.Curse = activeChar.bonus_statuses.Curse || 0
-        this.UserInputValues.BonusStatuses.Frost = activeChar.bonus_statuses.Frost || 0
-        this.UserInputValues.BonusStatuses.Bleed = activeChar.bonus_statuses.Bleed || 0
-        this.UserInputValues.BonusStatuses.Poison = activeChar.bonus_statuses.Poison || 0
-        this.UserInputValues.BonusStatuses.Toxic = activeChar.bonus_statuses.Toxic || 0
-        this.UserInputValues.BonusStatuses.Poise = activeChar.bonus_statuses.Poise || 0
+      // Status bonuses - replace entire object to ensure reactivity
+      this.UserInputValues.BonusStatuses = {
+        Curse: activeChar.bonus_statuses?.Curse || 0,
+        Frost: activeChar.bonus_statuses?.Frost || 0,
+        Bleed: activeChar.bonus_statuses?.Bleed || 0,
+        Poison: activeChar.bonus_statuses?.Poison || 0,
+        Toxic: activeChar.bonus_statuses?.Toxic || 0,
+        Poise: activeChar.bonus_statuses?.Poise || 0
       }
 
-      // Damage Calculator - Bonus Resistances (Primary table)
-      if ((activeChar as any).bonus_resistances) {
-        this.UserInputValues.BonusResistances.Physical = (activeChar as any).bonus_resistances.Physical || 0
-        this.UserInputValues.BonusResistances.Magic = (activeChar as any).bonus_resistances.Magic || 0
-        this.UserInputValues.BonusResistances.Fire = (activeChar as any).bonus_resistances.Fire || 0
-        this.UserInputValues.BonusResistances.Lightning = (activeChar as any).bonus_resistances.Lightning || 0
-        this.UserInputValues.BonusResistances.Dark = (activeChar as any).bonus_resistances.Dark || 0
-        this.UserInputValues.BonusResistances.FlatPhysical = (activeChar as any).bonus_resistances.FlatPhysical || 0
-        this.UserInputValues.BonusResistances.FlatMagic = (activeChar as any).bonus_resistances.FlatMagic || 0
-        this.UserInputValues.BonusResistances.FlatFire = (activeChar as any).bonus_resistances.FlatFire || 0
-        this.UserInputValues.BonusResistances.FlatLightning = (activeChar as any).bonus_resistances.FlatLightning || 0
-        this.UserInputValues.BonusResistances.FlatDark = (activeChar as any).bonus_resistances.FlatDark || 0
+      // Damage Calculator - Bonus Resistances (Primary table) - replace entire object to ensure reactivity
+      this.UserInputValues.BonusResistances = {
+        Physical: (activeChar as any).bonus_resistances?.Physical || 0,
+        Magic: (activeChar as any).bonus_resistances?.Magic || 0,
+        Fire: (activeChar as any).bonus_resistances?.Fire || 0,
+        Lightning: (activeChar as any).bonus_resistances?.Lightning || 0,
+        Dark: (activeChar as any).bonus_resistances?.Dark || 0,
+        FlatPhysical: (activeChar as any).bonus_resistances?.FlatPhysical || 0,
+        FlatMagic: (activeChar as any).bonus_resistances?.FlatMagic || 0,
+        FlatFire: (activeChar as any).bonus_resistances?.FlatFire || 0,
+        FlatLightning: (activeChar as any).bonus_resistances?.FlatLightning || 0,
+        FlatDark: (activeChar as any).bonus_resistances?.FlatDark || 0
       }
 
-      // Damage Calculator - Temporary Bonus Resistances (Bonus table)
-      if ((activeChar as any).bonus_resistances_temp) {
-        this.UserInputValues.BonusResistancesTemp.Physical = (activeChar as any).bonus_resistances_temp.Physical || 0
-        this.UserInputValues.BonusResistancesTemp.Magic = (activeChar as any).bonus_resistances_temp.Magic || 0
-        this.UserInputValues.BonusResistancesTemp.Fire = (activeChar as any).bonus_resistances_temp.Fire || 0
-        this.UserInputValues.BonusResistancesTemp.Lightning = (activeChar as any).bonus_resistances_temp.Lightning || 0
-        this.UserInputValues.BonusResistancesTemp.Dark = (activeChar as any).bonus_resistances_temp.Dark || 0
-        this.UserInputValues.BonusResistancesTemp.FlatPhysical = (activeChar as any).bonus_resistances_temp.FlatPhysical || 0
-        this.UserInputValues.BonusResistancesTemp.FlatMagic = (activeChar as any).bonus_resistances_temp.FlatMagic || 0
-        this.UserInputValues.BonusResistancesTemp.FlatFire = (activeChar as any).bonus_resistances_temp.FlatFire || 0
-        this.UserInputValues.BonusResistancesTemp.FlatLightning = (activeChar as any).bonus_resistances_temp.FlatLightning || 0
-        this.UserInputValues.BonusResistancesTemp.FlatDark = (activeChar as any).bonus_resistances_temp.FlatDark || 0
+      // Damage Calculator - Temporary Bonus Resistances (Bonus table) - replace entire object to ensure reactivity
+      this.UserInputValues.BonusResistancesTemp = {
+        Physical: (activeChar as any).bonus_resistances_temp?.Physical || 0,
+        Magic: (activeChar as any).bonus_resistances_temp?.Magic || 0,
+        Fire: (activeChar as any).bonus_resistances_temp?.Fire || 0,
+        Lightning: (activeChar as any).bonus_resistances_temp?.Lightning || 0,
+        Dark: (activeChar as any).bonus_resistances_temp?.Dark || 0,
+        FlatPhysical: (activeChar as any).bonus_resistances_temp?.FlatPhysical || 0,
+        FlatMagic: (activeChar as any).bonus_resistances_temp?.FlatMagic || 0,
+        FlatFire: (activeChar as any).bonus_resistances_temp?.FlatFire || 0,
+        FlatLightning: (activeChar as any).bonus_resistances_temp?.FlatLightning || 0,
+        FlatDark: (activeChar as any).bonus_resistances_temp?.FlatDark || 0
       }
 
       // Damage Calculator - Bonus Resistances Active toggle
-      if ((activeChar as any).bonus_resistances_active !== undefined) {
-        this.UserInputValues.BonusResistancesActive = (activeChar as any).bonus_resistances_active
-      }
+      this.UserInputValues.BonusResistancesActive = (activeChar as any).bonus_resistances_active ?? false
+
+      // Undying DC and Roll Mod overrides
+      this.UserInputValues.UndyingDC = (activeChar as any).undying_dc ?? null
+      this.UserInputValues.UndyingRollMod = (activeChar as any).undying_roll_mod ?? null
 
       // Resistances
       if (activeChar.resistances) {
@@ -1093,61 +1154,66 @@ export const usePlayerStore = defineStore({
       // Field notes
       this.FieldNotes = activeChar.field_notes || {}
 
-      // Equipment (all slots)
-      if (activeChar.equipment) {
-        this.Equipment = activeChar.equipment
+      // Equipment (all slots) - reset to defaults if not present
+      this.Equipment = activeChar.equipment || {
+        MainHand: null,
+        OffHand: null,
+        Armor: null,
+        Artifact: null,
+        Artifact2: null,
+        Ring1: null,
+        Ring2: null,
+        Ring3: null,
+        Ring4: null,
+        Ring5: null
       }
 
-      // Inventory
-      if (activeChar.inventory) {
-        this.Inventory = activeChar.inventory
-      }
+      // Inventory - reset to empty if not present
+      this.Inventory = activeChar.inventory || []
 
-      // Spell system
-      if (activeChar.attuned_spells) {
-        this.AttunedSpells = activeChar.attuned_spells
-      }
-      if (activeChar.learned_spells) {
-        this.LearnedSpells = activeChar.learned_spells
-      }
-      if (activeChar.spell_modifications) {
-        this.SpellModifications = activeChar.spell_modifications
-      }
+      // Spell system - hydrate attuned spells from compendium if needed
+      this.LearnedSpells = activeChar.learned_spells || []
+      this.SpellModifications = activeChar.spell_modifications || {}
+      this.AttunedSpells = this._hydrateAttuned(
+        activeChar.attuned_spells || [],
+        compendiumStore.Spells,
+        'spell_id'
+      )
 
-      // Spirit system
-      if (activeChar.attuned_spirits) {
-        this.AttunedSpirits = activeChar.attuned_spirits
-      }
-      if (activeChar.learned_spirits) {
-        this.LearnedSpirits = activeChar.learned_spirits
-      }
-      if (activeChar.spirit_modifications) {
-        this.SpiritModifications = activeChar.spirit_modifications
-      }
+      // Spirit system - hydrate attuned spirits from compendium if needed
+      this.LearnedSpirits = activeChar.learned_spirits || []
+      this.SpiritModifications = activeChar.spirit_modifications || {}
+      this.AttunedSpirits = this._hydrateAttuned(
+        activeChar.attuned_spirits || [],
+        compendiumStore.Spirits,
+        'spirit_id'
+      )
 
-      // Weapon skills
-      if (activeChar.attuned_weapon_skills) {
-        this.AttunedWeaponSkills = activeChar.attuned_weapon_skills
-      }
-      if (activeChar.learned_weapon_skills) {
-        this.LearnedWeaponSkills = activeChar.learned_weapon_skills
-      }
-      if (activeChar.weapon_skill_modifications) {
-        this.WeaponSkillModifications = activeChar.weapon_skill_modifications
-      }
+      // Weapon skills - hydrate attuned weapon skills from compendium if needed
+      this.LearnedWeaponSkills = activeChar.learned_weapon_skills || []
+      this.WeaponSkillModifications = activeChar.weapon_skill_modifications || {}
+      this.AttunedWeaponSkills = this._hydrateAttuned(
+        activeChar.attuned_weapon_skills || [],
+        compendiumStore.WeaponSkills,
+        'skill_id'
+      )
 
       // Weapon modifications
-      if (activeChar.weapon_modifications) {
-        this.WeaponModifications = activeChar.weapon_modifications
-      }
+      this.WeaponModifications = activeChar.weapon_modifications || {}
 
-      // Destined traits
-      if (activeChar.obtained_destined_traits) {
-        this.ObtainedDestinedTraits = activeChar.obtained_destined_traits
-      }
-      if (activeChar.destined_trait_modifications) {
-        this.DestinedTraitModifications = activeChar.destined_trait_modifications
-      }
+      // Destined traits - hydrate from compendium if needed
+      const rawDestinedTraits = activeChar.obtained_destined_traits || []
+      this.ObtainedDestinedTraits = rawDestinedTraits.map((t: any) => {
+        // If already hydrated (has name), keep as-is
+        if (t.name) return t
+        // Hydrate from compendium using feat_id
+        const compTrait = compendiumStore.DestinyFeats?.find((dt: any) => dt.id === t.feat_id)
+        if (compTrait) {
+          return { ...t, id: t.id || t.feat_id, name: compTrait.name, description: compTrait.description, cost: compTrait.cost }
+        }
+        return t
+      })
+      this.DestinedTraitModifications = activeChar.destined_trait_modifications || {}
 
       // Weapon proficiencies
       if (activeChar.weapon_proficiency_points) {
@@ -1165,13 +1231,20 @@ export const usePlayerStore = defineStore({
           customBonus: 0
         }
       }
-      if (activeChar.obtained_weapon_prof_feats) {
-        this.ObtainedWeaponProfFeats = activeChar.obtained_weapon_prof_feats
-      }
-      if (activeChar.weapon_proficiencies) {
-        // Create a new object to avoid reference issues
-        this.WeaponProficiencies = { ...activeChar.weapon_proficiencies }
-      }
+      // Weapon prof feats - hydrate from compendium if needed
+      const rawWeaponFeats = activeChar.obtained_weapon_prof_feats || []
+      this.ObtainedWeaponProfFeats = rawWeaponFeats.map((f: any) => {
+        // If already hydrated (has name), keep as-is
+        if (f.name) return f
+        // Hydrate from compendium using feat_id
+        const compFeat = compendiumStore.WeaponFeats?.find((wf: any) => wf.id === f.feat_id)
+        if (compFeat) {
+          return { ...f, id: f.id || f.feat_id, name: compFeat.name, description: compFeat.description, level: compFeat.level, weapon_tree: f.weapon_tree || compFeat.weapon_tree }
+        }
+        return f
+      })
+      // Create a new object to avoid reference issues - reset to empty if not present
+      this.WeaponProficiencies = activeChar.weapon_proficiencies ? { ...activeChar.weapon_proficiencies } : {}
 
       // Cross-tree feat acquisition flags - ALWAYS reset to prevent cross-character contamination
       this.DualWieldingFeatFlags = (activeChar as any).dual_wielding_feat_flags || {
@@ -1185,6 +1258,12 @@ export const usePlayerStore = defineStore({
       this.MusicalInstrumentsFeatFlags = (activeChar as any).musical_instruments_feat_flags || {
         skilled_artist_used: false,
         master_artist_used: false
+      }
+
+      this.HalberdFeatFlags = (activeChar as any).halberd_feat_flags || {
+        two_in_one_used: false,
+        two_in_one_plus_used: false,
+        master_of_all_trades_used: false
       }
 
       this.ProtegeFlags = (activeChar as any).protege_flags || {
@@ -1204,18 +1283,12 @@ export const usePlayerStore = defineStore({
         ? (activeChar as any).temporary_fate_points
         : 0
 
-      // Notes and Compendium
-      if (activeChar.notes) {
-        this.Notes = activeChar.notes
-      }
-      if (activeChar.compendium) {
-        this.Compendium = activeChar.compendium
-      }
+      // Notes and Compendium - reset to defaults if not present
+      this.Notes = activeChar.notes || { sections: [] }
+      this.Compendium = activeChar.compendium || { entries: [] }
 
-      // Companions
-      if (activeChar.companions) {
-        this.Companions = activeChar.companions
-      }
+      // Companions - reset to empty if not present
+      this.Companions = activeChar.companions || []
 
       // Character image
       if ((activeChar as any).character_image_path) {
@@ -1236,7 +1309,26 @@ export const usePlayerStore = defineStore({
       }
 
       console.log('Active character loaded (comprehensive):', activeChar.name)
+
+      // Clear loading flag
+      this.isLoadingCharacter = false
       return true
+    },
+
+    // Hydrate attuned items from compendium
+    // API format: {spell_id, slot_number}. Store format: full Spell/Spirit/Skill objects.
+    // If the item already has a 'name' property, it's already hydrated (from localStorage save).
+    _hydrateAttuned(items: any[], compendiumList: any[], idKey: string): any[] {
+      if (!items || items.length === 0) return []
+      return items.map((item: any) => {
+        // Already hydrated (has name from a localStorage save)
+        if (item.name) return item
+        // Find in compendium by the ID field
+        const itemId = item[idKey] || item.id
+        if (!itemId) return item
+        const found = compendiumList?.find((c: any) => c.id === itemId)
+        return found ? { ...found } : item
+      })
     },
 
     // Export current character as downloadable file
@@ -1446,17 +1538,20 @@ export const usePlayerStore = defineStore({
 
       // Debounced save (triggers 2s after last user action)
       const debouncedSave = () => {
+        this.isDirty = true
         if (saveTimeout) clearTimeout(saveTimeout)
         saveTimeout = setTimeout(() => {
           this.save()
-          console.log('Auto-save triggered (user action debounce)')
+          this.isDirty = false
         }, 2000) // 2s delay after last action
       }
 
-      // Periodic backup save (every 30s)
+      // Periodic backup save (every 30s) - only if data changed
       periodicSaveInterval = setInterval(() => {
-        this.save()
-        console.log('Auto-save triggered (periodic backup)')
+        if (this.isDirty) {
+          this.save()
+          this.isDirty = false
+        }
       }, 30000) // 30s interval
 
       // Watch character stats
@@ -1704,6 +1799,7 @@ export const usePlayerStore = defineStore({
     // Compendium is saved automatically via auto-save watchers
 
     // Recalculate proficiency points when level changes
+    // No direct save() here - the Level watcher handles saving via debounce
     recalculateProficiencyPoints() {
       if (!this.WeaponProficiencyPoints) {
         this.WeaponProficiencyPoints = {
@@ -1712,11 +1808,9 @@ export const usePlayerStore = defineStore({
           customBonus: 0
         }
       } else {
-        // Update base from level and total
         this.WeaponProficiencyPoints.baseFromLevel = this.Level
         this.WeaponProficiencyPoints.total = this.Level + this.WeaponProficiencyPoints.customBonus
       }
-      this.save()
     },
 
     // Simplified proficiency points management
@@ -1810,7 +1904,7 @@ export const usePlayerStore = defineStore({
       const targetLevel = this.Level + 1
       const isEven = targetLevel % 2 === 0
 
-      // HP roll logic: check if we can reuse existing roll
+      // HP roll logic: reuse existing roll if health die config unchanged
       let hpRoll = 0
       let lastHealthDie = { count: this.HealthDie.count, sides: this.HealthDie.sides }
 
@@ -1851,6 +1945,7 @@ export const usePlayerStore = defineStore({
         active: true,
         targetLevel,
         isEvenLevel: isEven,
+        mandatory: false,  // Regular level-up can be closed
 
         hpRoll,
         lastHealthDie, // Store current die config
@@ -1862,6 +1957,48 @@ export const usePlayerStore = defineStore({
         primaryToSpend: 1,
         secondaryToSpend: !isEven && targetLevel < 20 ? 1 : 0,
         tertiaryToSpend: tertiaryPointsToSpend,
+        primarySpent: 0,
+        secondarySpent: 0,
+        tertiarySpent: 0,
+        tempTreeAllocations: {},
+
+        completed: false
+      }
+
+      this.save()
+      return true
+    },
+
+    // Initialize Level 1 level-up for new characters (bypasses souls requirement)
+    // Called at end of character creation - character is Level 0 and must complete this
+    initializeLevel1LevelUp(): boolean {
+      // Level 1 is an odd level
+      const targetLevel = 1
+      const isEven = false
+
+      // Roll HP for level 1
+      let hpRoll = 0
+      for (let i = 0; i < this.HealthDie.count; i++) {
+        hpRoll += Math.floor(Math.random() * this.HealthDie.sides) + 1
+      }
+
+      this.PendingLevelUp = {
+        active: true,
+        targetLevel,
+        isEvenLevel: isEven,
+        mandatory: true, // Cannot close modal until completed
+
+        hpRoll,
+        lastHealthDie: { count: this.HealthDie.count, sides: this.HealthDie.sides },
+        selectedStat: null,
+        oldStatValue: 0,
+        newStatValue: 0,
+        selectedKnowledge: null,
+
+        // Level 1 is odd: 1 primary + 1 secondary (no tertiary at level 1)
+        primaryToSpend: 1,
+        secondaryToSpend: 1,
+        tertiaryToSpend: 0,
         primarySpent: 0,
         secondarySpent: 0,
         tertiarySpent: 0,
@@ -1954,8 +2091,10 @@ export const usePlayerStore = defineStore({
         this.MultiProficientRetroactivePoints = 0
       }
 
-      // Deduct souls
-      this.Souls -= pending.targetLevel * 10
+      // Deduct souls (skip for mandatory Level 1 from character creation)
+      if (!pending.mandatory) {
+        this.Souls -= pending.targetLevel * 10
+      }
 
       // Clear pending level up
       this.PendingLevelUp = null
@@ -2164,15 +2303,16 @@ export const usePlayerStore = defineStore({
       return triggers
     },
 
-    // Helper: Check all immediate triggers (DW + Musical) for a feat
+    // Helper: Check all immediate triggers (DW + Musical + Halberd) for a feat
     // Returns object with trigger arrays that need to be processed
-    checkImmediateTriggers(obtainedFeatId: number): { dwTriggers: string[], musicalTriggers: string[] } {
+    checkImmediateTriggers(obtainedFeatId: number): { dwTriggers: string[], musicalTriggers: string[], halberdTriggers: string[] } {
       const dwTriggers = this.checkDualWieldingTriggers(obtainedFeatId)
       const musicalTriggers = this.checkMusicalInstrumentTriggers(obtainedFeatId)
+      const halberdTriggers = this.checkHalberdTriggers(obtainedFeatId)
 
-      console.log(`[CHECK IMMEDIATE] Feat ID ${obtainedFeatId} - DW: ${dwTriggers}, Musical: ${musicalTriggers}`)
+      console.log(`[CHECK IMMEDIATE] Feat ID ${obtainedFeatId} - DW: ${dwTriggers}, Musical: ${musicalTriggers}, Halberd: ${halberdTriggers}`)
 
-      return { dwTriggers, musicalTriggers }
+      return { dwTriggers, musicalTriggers, halberdTriggers }
     },
 
     // Check if specific Musical Instruments triggers need to fire
@@ -2191,6 +2331,38 @@ export const usePlayerStore = defineStore({
       // Check Master Artist (lv15)
       if (feat.level === 15 && feat.name === 'Master Artist' && !this.MusicalInstrumentsFeatFlags.master_artist_used) {
         triggers.push('musical_master_artist')
+      }
+
+      return triggers
+    },
+
+    // Check if Halberd triggers need to fire
+    checkHalberdTriggers(obtainedFeatId: number): string[] {
+      const triggers: string[] = []
+      const compendiumStore = useCompendiumStore()
+      const feat = compendiumStore.WeaponFeats.find(f => f.id === obtainedFeatId)
+
+      if (!feat || feat.weapon_tree !== 'HALBERD') return triggers
+
+      // Check Two In One (lv10) - Choose one lv5 Spear AND one lv5 Axe/Greataxe feat
+      // Note: Feat name is "Two In One" (capital I in In)
+      if (feat.level === 10 && feat.name === 'Two In One' && !this.HalberdFeatFlags.two_in_one_used) {
+        triggers.push('halberd_two_in_one')
+      }
+
+      // Check Two In One+ (lv17) - Choose one lv10 Axe/Greataxe OR Spear feat
+      // Note: Feat name is "Physical Leadership+/Two In One+"
+      // PREREQUISITE: Two In One (lv10) must be obtained first - Two In One+ is an upgrade to Two In One
+      if (feat.level === 17 && feat.name === 'Physical Leadership+/Two In One+' && !this.HalberdFeatFlags.two_in_one_plus_used) {
+        // Only trigger if Two In One was used (meaning user chose the Two In One path, not just Physical Leadership)
+        if (this.HalberdFeatFlags.two_in_one_used) {
+          triggers.push('halberd_two_in_one_plus')
+        }
+      }
+
+      // Check Master of All Trades (lv20) - Choose one lv20 Spear, Axe/Greataxe, OR Straight Sword/Thrusting Sword feat
+      if (feat.level === 20 && feat.name === 'Master of All Trades' && !this.HalberdFeatFlags.master_of_all_trades_used) {
+        triggers.push('halberd_master_of_all_trades')
       }
 
       return triggers
@@ -2237,7 +2409,7 @@ export const usePlayerStore = defineStore({
     getProtegeAvailableTrees(milestoneLevel: number): string[] {
       const treesWithMilestone: string[] = []
 
-      // Check each feat to see if we have any at the milestone level
+      // Find trees that have feats at the milestone level
       this.ObtainedWeaponProfFeats.forEach((obtainedFeat: ObtainedWeaponProfFeat) => {
         if (obtainedFeat.level === milestoneLevel && !treesWithMilestone.includes(obtainedFeat.weapon_tree)) {
           treesWithMilestone.push(obtainedFeat.weapon_tree)
@@ -2432,6 +2604,94 @@ export const usePlayerStore = defineStore({
       return { dwTriggers: allDwTriggers, musicalTriggers: allMusicalTriggers, obtainedFeatIds }
     },
 
+    // Handle Halberd cross-tree feat selection
+    // Two in One (lv10): Choose ONE lv5 Spear AND ONE lv5 Axe/Greataxe feat (both)
+    // Two in One+ (lv17): Choose ONE lv10 Axe/Greataxe OR Spear feat
+    // Master of All Trades (lv20): Choose ONE lv20 Spear, Axe/Greataxe, OR Straight Sword/Thrusting Sword feat
+    handleHalberdSelection(modalType: string, selection: { featId?: number, featIds?: number[] }): { dwTriggers: string[], musicalTriggers: string[], halberdTriggers: string[], obtainedFeatIds: number[] } | null {
+      let source: ObtainedWeaponProfFeat['source']
+      let flagToSet: keyof HalberdFeatFlags
+
+      switch (modalType) {
+        case 'halberd_two_in_one':
+          source = 'halberd_two_in_one'
+          flagToSet = 'two_in_one_used'
+          break
+        case 'halberd_two_in_one_plus':
+          source = 'halberd_two_in_one_plus'
+          flagToSet = 'two_in_one_plus_used'
+          break
+        case 'halberd_master_of_all_trades':
+          source = 'halberd_master_of_all_trades'
+          flagToSet = 'master_of_all_trades_used'
+          break
+        default:
+          console.error('Unknown modal type:', modalType)
+          return null
+      }
+
+      // Find the OBTAINED granting Halberd feat
+      const levelMap: Record<string, number> = {
+        halberd_two_in_one: 10,
+        halberd_two_in_one_plus: 17,
+        halberd_master_of_all_trades: 20
+      }
+
+      const featNameMap: Record<string, string> = {
+        halberd_two_in_one: 'Two In One',
+        halberd_two_in_one_plus: 'Physical Leadership+/Two In One+',
+        halberd_master_of_all_trades: 'Master of All Trades'
+      }
+
+      // Find the OBTAINED feat for cascading removal
+      const halberdObtainedFeat = this.ObtainedWeaponProfFeats.find(
+        (f: ObtainedWeaponProfFeat) =>
+          f.weapon_tree === 'HALBERD' &&
+          f.level === levelMap[modalType] &&
+          f.name === featNameMap[modalType]
+      )
+
+      let obtainedFeatIds: number[] = []
+
+      // Handle Two in One (lv10) - requires selecting 2 feats (one from Spear, one from Great Axe)
+      if (modalType === 'halberd_two_in_one' && selection.featIds && selection.featIds.length === 2) {
+        selection.featIds.forEach(featId => {
+          this.obtainWeaponProfFeat(featId, source, halberdObtainedFeat?.id)
+          obtainedFeatIds.push(featId)
+        })
+        console.log(`Obtained 2 feats from Halberd Two in One: one Spear lv5, one Axe/Greataxe lv5`)
+      }
+      // Handle single feat selection (Two in One+, Master of All Trades)
+      else if (selection.featId) {
+        this.obtainWeaponProfFeat(selection.featId, source, halberdObtainedFeat?.id)
+        obtainedFeatIds.push(selection.featId)
+        console.log(`Obtained feat from Halberd: ${source}`)
+      } else {
+        console.error('No feat selected')
+        return null
+      }
+
+      // Mark flag as used
+      this.HalberdFeatFlags[flagToSet] = true
+      this.save()
+
+      // Check for immediate triggers on ALL newly obtained feats
+      let allDwTriggers: string[] = []
+      let allMusicalTriggers: string[] = []
+      let allHalberdTriggers: string[] = []
+
+      obtainedFeatIds.forEach(featId => {
+        const triggers = this.checkImmediateTriggers(featId)
+        allDwTriggers.push(...triggers.dwTriggers)
+        allMusicalTriggers.push(...triggers.musicalTriggers)
+        allHalberdTriggers.push(...triggers.halberdTriggers)
+      })
+
+      console.log(`[HALBERD] Obtained ${obtainedFeatIds.length} feat(s), triggers:`, { dwTriggers: allDwTriggers, musicalTriggers: allMusicalTriggers, halberdTriggers: allHalberdTriggers })
+
+      return { dwTriggers: allDwTriggers, musicalTriggers: allMusicalTriggers, halberdTriggers: allHalberdTriggers, obtainedFeatIds }
+    },
+
     // Handle Protege cross-tree feat selection
     // Returns triggers AND obtained feat IDs that need to be tracked by the UI component
     handleProtegeSelection(modalType: string, selection: { featId?: number }, treeId?: string): { dwTriggers: string[], musicalTriggers: string[], obtainedFeatIds: number[] } | null {
@@ -2544,6 +2804,9 @@ export const usePlayerStore = defineStore({
         dual_wielding_master_plus: '(acquired through Dual Wielding - Master Wielder+)',
         musical_skilled_artist: '(acquired through Musical Instruments - Skilled Artist)',
         musical_master_artist: '(acquired through Musical Instruments - Master Artist)',
+        halberd_two_in_one: '(acquired through Halberd - Two in One)',
+        halberd_two_in_one_plus: '(acquired through Halberd - Two in One+)',
+        halberd_master_of_all_trades: '(acquired through Halberd - Master of All Trades)',
         protege_1: '(acquired through Protege 1)',
         protege_2: '(acquired through Protege 2)',
         protege_3: '(acquired through Protege 3)'
@@ -2607,8 +2870,19 @@ export const usePlayerStore = defineStore({
         }
       }
 
+      // Reset Halberd flags
+      if (feat.weapon_tree === 'HALBERD') {
+        if (feat.level === 10 && feat.name === 'Two In One') {
+          this.HalberdFeatFlags.two_in_one_used = false
+        } else if (feat.level === 17 && feat.name === 'Physical Leadership+/Two In One+') {
+          this.HalberdFeatFlags.two_in_one_plus_used = false
+        } else if (feat.level === 20 && feat.name === 'Master of All Trades') {
+          this.HalberdFeatFlags.master_of_all_trades_used = false
+        }
+      }
+
       // NOTE: Protege flag resets are handled in DestinedTraitsTab.vue when un-obtaining Protege Destined Traits
-      // This function only handles Weapon Proficiency Feat flag resets (Dual Wielding, Musical Instruments)
+      // This function only handles Weapon Proficiency Feat flag resets (Dual Wielding, Musical Instruments, Halberd)
     }
   }
 })

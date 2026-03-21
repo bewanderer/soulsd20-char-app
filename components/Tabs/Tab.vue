@@ -10,7 +10,7 @@
       @click="handleClick"
     >
       <img
-        :src="`./img/icons/${iconName}.png`"
+        :src="`/img/icons/${iconName}.png`"
         class="tab-icon"
         draggable="false"
         :alt="tabLabel"

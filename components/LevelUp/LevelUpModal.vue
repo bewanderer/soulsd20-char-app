@@ -1,10 +1,10 @@
 <template>
-  <div v-if="playerStore.PendingLevelUp?.active" class="modal-overlay">
+  <div v-if="playerStore.PendingLevelUp?.active" class="modal-overlay" @click.self="handleOverlayClick">
     <div class="modal-container level-up-modal">
       <!-- Header -->
       <div class="modal-header">
-        <h2 class="modal-title">Level Up to {{ playerStore.PendingLevelUp.targetLevel }}</h2>
-        <button @click="closeModal" class="modal-close-btn">×</button>
+        <h2 class="modal-title">{{ modalTitle }}</h2>
+        <button v-if="!isMandatory" @click="closeModal" class="modal-close-btn">×</button>
       </div>
 
       <!-- Progress Indicator -->
@@ -73,6 +73,19 @@ import LevelUpStep2 from './LevelUpStep2.vue'
 const playerStore = usePlayerStore()
 const currentStep = ref(1)
 
+// Check if this is a mandatory level-up (from character creation)
+const isMandatory = computed(() => {
+  return playerStore.PendingLevelUp?.mandatory === true
+})
+
+// Dynamic title based on context
+const modalTitle = computed(() => {
+  if (isMandatory.value) {
+    return 'Complete Character Creation - Level 1'
+  }
+  return `Level Up to ${playerStore.PendingLevelUp?.targetLevel}`
+})
+
 const step1Complete = computed(() => {
   const pending = playerStore.PendingLevelUp
   if (!pending) return false
@@ -116,7 +129,19 @@ function completeLevelUp() {
   }
 }
 
+function handleOverlayClick() {
+  // Prevent closing by clicking overlay if mandatory
+  if (!isMandatory.value) {
+    closeModal()
+  }
+}
+
 function closeModal() {
+  // Prevent closing if mandatory (character creation Level 1)
+  if (isMandatory.value) {
+    return
+  }
+
   // Reset all choices except HP roll (to prevent HP spam)
   if (playerStore.PendingLevelUp) {
     // Reset the state

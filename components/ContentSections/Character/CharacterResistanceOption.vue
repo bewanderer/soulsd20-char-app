@@ -39,6 +39,7 @@
 </template>
 
 <script setup lang="ts">
+import { shallowRef, watch } from 'vue'
 import * as utils from '@/mixins/utils'
 import { usePlayerStore } from '@/store/player'
 import FieldComment from '~/components/UI/FieldComment.vue'
@@ -69,6 +70,11 @@ const props = defineProps({
 })
 
 const stat = shallowRef(props.statAmount)
+
+// Watch for prop changes (handles character reset/switch)
+watch(() => props.statAmount, (newVal) => {
+  stat.value = newVal
+})
 
 function setAmt() {
   if (!stat.value) stat.value = 0

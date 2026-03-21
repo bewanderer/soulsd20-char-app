@@ -91,7 +91,7 @@
     <CharacterImageUpload
       v-if="showImageUploadModal"
       :mode="imageUploadMode"
-      :existingImage="characterImage"
+      :existingImage="playerStore.CharacterImagePath"
       @close="closeImageUpload"
       @save="handleImageSaved"
     />
@@ -111,7 +111,23 @@ const showImageUploadModal = ref(false)
 const imageUploadMode = ref<'upload' | 'edit'>('upload')
 
 const characterImage = computed(() => {
-  return playerStore.CharacterImagePath || ''
+  const raw = playerStore.CharacterImagePath || ''
+  if (!raw) return ''
+
+  // Try parsing JSON (legacy format with position data)
+  let url = raw
+  try {
+    const data = JSON.parse(raw)
+    url = data.url || raw
+  } catch {
+    // Plain URL string
+  }
+
+  // Server-hosted images need the API base URL prefix
+  if (url.startsWith('/media/')) {
+    return `http://127.0.0.1:8000${url}`
+  }
+  return url
 })
 
 const requiredSoulsToLevel = computed(() => {
@@ -453,4 +469,5 @@ input[type=number]::-webkit-outer-spin-button {
     box-shadow: 0 0 20px var(--color-gold-rgba-strong);
   }
 }
+
 </style>

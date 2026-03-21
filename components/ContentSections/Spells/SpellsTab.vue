@@ -551,7 +551,7 @@ watch(categoryFilter, () => {
 // Formula: 1 + (Att stat - 10) + bonus, cannot go below 0
 const totalAttunementSlots = computed(() => {
   const att = playerStore.CharacterStats.Stats.Attunement || 10
-  const fromStat = Math.max(0, 1 + (att - 10))
+  const fromStat = Math.max(1, 1 + (att - 10))  // Minimum 1 slot
   const bonus = playerStore.UserInputValues.AttunementSlots || 0
   return fromStat + bonus
 })

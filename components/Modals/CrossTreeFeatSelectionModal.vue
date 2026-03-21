@@ -145,10 +145,18 @@
           </div>
           <!-- Multiple feats confirmation -->
           <div v-else-if="selectedFeats.length > 0" class="confirmation-card">
-            <div class="confirmation-multi-title">Selected {{ selectedFeats.length }} Feat(s) from {{ getTreeName(selectedTree || undefined) }}</div>
+            <div class="confirmation-multi-title">
+              {{ selectionMode === 'halberd-double' ?
+                `Selected ${selectedFeats.length} Feat(s) from Different Trees` :
+                `Selected ${selectedFeats.length} Feat(s) from ${getTreeName(selectedTree || undefined)}`
+              }}
+            </div>
             <div v-for="featId in selectedFeats" :key="featId" class="confirmation-feat-item">
               <div class="confirmation-feat-name">{{ getFeatById(featId)?.name }}</div>
               <div class="confirmation-feat-level">Level {{ getFeatById(featId)?.level }}</div>
+              <div v-if="selectionMode === 'halberd-double'" class="confirmation-feat-tree">
+                From: {{ getTreeName(getFeatById(featId)?.weapon_tree) }}
+              </div>
             </div>
           </div>
         </div>
@@ -181,7 +189,7 @@ import { usePlayerStore } from '~/store/player'
 
 const props = defineProps<{
   isOpen: boolean
-  modalType: 'dual_wielding_skilled' | 'dual_wielding_skilled_plus' | 'dual_wielding_master' | 'dual_wielding_master_plus' | 'musical_skilled_artist' | 'musical_master_artist' | 'protege_1_lv3' | 'protege_1_lv5' | 'protege_2' | 'protege_3' | null
+  modalType: 'dual_wielding_skilled' | 'dual_wielding_skilled_plus' | 'dual_wielding_master' | 'dual_wielding_master_plus' | 'musical_skilled_artist' | 'musical_master_artist' | 'halberd_two_in_one' | 'halberd_two_in_one_plus' | 'halberd_master_of_all_trades' | 'protege_1_lv3' | 'protege_1_lv5' | 'protege_2' | 'protege_3' | null
   availableTrees?: string[]  // For Protege postponed selections
   grantingFeatId?: number | null  // ID of feat that triggered the modal (to exclude from selection)
 }>()
@@ -200,7 +208,7 @@ const selectedFeat = ref<number | null>(null)
 const selectedFeats = ref<number[]>([])  // For multi-feat selection
 const choseFatePoint = ref(false)
 const choiceMode = ref<'single' | 'double' | null>(null)  // For 'choice' selection mode
-const musicalStep = ref<1 | 2>(1)  // Track which step of Musical Instruments option 2 we're on
+const musicalStep = ref<1 | 2>(1)  // Current step for Musical Instruments option 2
 const searchQuery = ref('')  // Search query for feat filtering
 const selectedTreeFilter = ref<string | null>(null)  // Tree filter for feat list
 
@@ -297,6 +305,36 @@ const modalConfig = computed(() => {
         differentTrees: true,  // Feats must be from different categories
         categoryFiltered: true  // Enable category-based filtering
       }
+    case 'halberd_two_in_one':
+      return {
+        title: 'Halberd - Two in One (Level 10)',
+        description: 'Choose ONE level 5 Spear feat AND ONE level 5 Axe/Greataxe feat. You gain both feats.',
+        selectionMode: 'halberd-double' as const,  // Special mode: one from SPEAR, one from GREAT_AXE
+        levels: [5],
+        allowFatePoint: false,
+        canPostpone: false,
+        halberdTrees: ['SPEAR', 'GREAT_AXE']  // Must select from these two trees
+      }
+    case 'halberd_two_in_one_plus':
+      return {
+        title: 'Halberd - Two in One+ (Level 17)',
+        description: 'Choose ONE level 10 feat from either the Axe/Greataxe OR Spear tree.',
+        selectionMode: 'single-feat' as const,
+        levels: [10],
+        allowFatePoint: false,
+        canPostpone: false,
+        halberdTrees: ['SPEAR', 'GREAT_AXE']  // Filter to these trees only
+      }
+    case 'halberd_master_of_all_trades':
+      return {
+        title: 'Halberd - Master of All Trades (Level 20)',
+        description: 'Choose ONE level 20 feat from Spear, Axe/Greataxe, OR Straight Sword/Thrusting Sword tree.',
+        selectionMode: 'single-feat' as const,
+        levels: [20],
+        allowFatePoint: false,
+        canPostpone: false,
+        halberdTrees: ['SPEAR', 'GREAT_AXE', 'STRAIGHT_THRUST']  // Filter to these trees only
+      }
     case 'protege_1_lv3':
       return {
         title: 'Protege 1 - Immediate Level 3 Feat',
@@ -342,14 +380,15 @@ const selectionMode = computed(() => modalConfig.value?.selectionMode || 'single
 const allowFatePointChoice = computed(() => modalConfig.value?.allowFatePoint || false)
 const canPostpone = computed(() => modalConfig.value?.canPostpone || false)
 
-// Check if we're in multi-selection mode (selecting both feats)
+// Multi-selection mode check (selecting both feats)
 const isInSelectionMode = computed(() => {
-  return choiceMode.value === 'double'
+  return choiceMode.value === 'double' || selectionMode.value === 'halberd-double'
 })
 
-// Check if we should show feat selection
+// Determines feat selection panel visibility
 const shouldShowFeatSelection = computed(() => {
   if (selectionMode.value === 'single-feat') return true
+  if (selectionMode.value === 'halberd-double') return true  // Always show feats for halberd-double
   if (selectionMode.value === 'choice' && choiceMode.value === 'single') return true
   if (selectionMode.value === 'choice' && choiceMode.value === 'double') {
     // For differentTrees mode, show feats immediately
@@ -360,10 +399,12 @@ const shouldShowFeatSelection = computed(() => {
   return false
 })
 
-// Check if we should show tree filter dropdown (only for multi-tree selections)
+// Determines tree filter dropdown visibility (multi-tree selections only)
 const shouldShowTreeFilter = computed(() => {
   // Show filter for single-feat mode (Protege modals)
   if (selectionMode.value === 'single-feat') return true
+  // Show filter for halberd-double mode (Two in One)
+  if (selectionMode.value === 'halberd-double') return true
   // Show filter for choice mode - single high-level feat
   if (selectionMode.value === 'choice' && choiceMode.value === 'single') return true
   // Show filter for choice mode - double feats from different trees
@@ -398,6 +439,10 @@ const availableTreesForFilter = computed(() => {
       // For Protege with available trees
       if (props.modalType?.startsWith('protege') && props.availableTrees?.length) {
         shouldInclude = props.availableTrees.includes(feat.weapon_tree)
+      }
+      // For Halberd feats with halberdTrees filter
+      else if (modalConfig.value?.halberdTrees?.length) {
+        shouldInclude = modalConfig.value.halberdTrees.includes(feat.weapon_tree)
       }
       // For Musical Instruments single feat (magic trees only)
       else if (selectionMode.value === 'choice' && choiceMode.value === 'single' && modalConfig.value?.categoryFiltered) {
@@ -498,6 +543,21 @@ const availableTreesForSelection = computed(() => {
 const featSelectionTitle = computed(() => {
   if (!modalConfig.value) return 'Select a Feat'
 
+  // Halberd double mode (Two in One)
+  if (selectionMode.value === 'halberd-double') {
+    const level = modalConfig.value.levels[0]
+    if (selectedFeats.value.length === 0) {
+      return `Select One Level ${level} Spear Feat AND One Level ${level} Axe/Greataxe Feat (0/2)`
+    } else if (selectedFeats.value.length === 1) {
+      const firstFeat = getFeatById(selectedFeats.value[0])
+      const firstTree = getTreeName(firstFeat?.weapon_tree || '')
+      const otherTree = firstFeat?.weapon_tree === 'SPEAR' ? 'Axe/Greataxe' : 'Spear'
+      return `Selected: ${firstTree} - Now select a Level ${level} ${otherTree} Feat (1/2)`
+    } else {
+      return `Selected Both Feats (2/2)`
+    }
+  }
+
   if (choiceMode.value === 'double') {
     const level = modalConfig.value.levels[1]
     const availableFeatsCount = filteredFeats.value.filter(f => !isFeatDisabled(f)).length
@@ -571,6 +631,18 @@ const filteredFeats = computed(() => {
     )
   }
 
+  // For Halberd double mode (Two in One: one from SPEAR, one from GREAT_AXE)
+  else if (selectionMode.value === 'halberd-double') {
+    const targetLevel = modalConfig.value.levels?.[0]
+    if (!targetLevel) return []
+
+    // Filter to halberdTrees only
+    feats = allFeats.filter(feat =>
+      feat.level === targetLevel &&
+      modalConfig.value?.halberdTrees?.includes(feat.weapon_tree)
+    )
+  }
+
   // For single feat selection
   else if (selectionMode.value === 'single-feat') {
     feats = allFeats.filter(feat => {
@@ -581,6 +653,11 @@ const filteredFeats = computed(() => {
       if (props.modalType && props.modalType.startsWith('protege') && props.availableTrees && props.availableTrees.length > 0) {
         // Filter to only show feats from trees that have reached the milestone
         if (!props.availableTrees.includes(feat.weapon_tree)) return false
+      }
+
+      // For Halberd feats with halberdTrees filter (Two in One+, Master of All Trades)
+      if (modalConfig.value?.halberdTrees?.length) {
+        if (!modalConfig.value.halberdTrees.includes(feat.weapon_tree)) return false
       }
 
       // NOTE: DUAL_WIELDING is now allowed for all Protege selections
@@ -621,13 +698,36 @@ const filteredFeats = computed(() => {
   return feats
 })
 
-// Check if feat is already obtained or disabled by Musical Instruments logic
+// Check if feat is already obtained or disabled by Musical Instruments/Halberd logic
 function isFeatDisabled(feat: any): boolean {
   // Check if already obtained
   const alreadyObtained = playerStore.ObtainedWeaponProfFeats.some(
     (obtained: any) => obtained.feat_id === feat.id
   )
   if (alreadyObtained) return true
+
+  // Halberd double mode logic (Two in One: one from SPEAR, one from GREAT_AXE)
+  if (selectionMode.value === 'halberd-double' && isInSelectionMode.value) {
+    // Never disable already-selected feats (allow deselection)
+    if (selectedFeats.value.includes(feat.id)) {
+      return false
+    }
+    // If one feat selected, disable all OTHER feats from that tree
+    if (selectedFeats.value.length === 1) {
+      const firstSelectedFeat = getFeatById(selectedFeats.value[0])
+      const firstTree = firstSelectedFeat?.weapon_tree
+
+      // Disable all OTHER feats from the same tree (not the selected one)
+      if (feat.weapon_tree === firstTree) {
+        return true
+      }
+    }
+    // If two feats selected, can't select more (but can still deselect)
+    if (selectedFeats.value.length >= 2) {
+      return true  // All non-selected feats are disabled
+    }
+    return false
+  }
 
   // Musical Instruments smart disabling logic (Option 2 only)
   if (modalConfig.value?.categoryFiltered && modalConfig.value?.differentTrees && isInSelectionMode.value) {
@@ -663,6 +763,22 @@ function getDisabledReason(feat: any): string {
     (obtained: any) => obtained.feat_id === feat.id
   )
   if (alreadyObtained) return 'Already obtained'
+
+  // Halberd double mode specific reasons
+  if (selectionMode.value === 'halberd-double' && isInSelectionMode.value) {
+    if (selectedFeats.value.length === 1) {
+      const firstSelectedFeat = getFeatById(selectedFeats.value[0])
+      const firstTree = firstSelectedFeat?.weapon_tree
+
+      if (feat.weapon_tree === firstTree) {
+        return `Already selected ${getTreeName(firstTree)} feat`
+      }
+    }
+    if (selectedFeats.value.length >= 2 && !selectedFeats.value.includes(feat.id)) {
+      return 'Already selected 2 feats'
+    }
+    return ''
+  }
 
   // Musical Instruments specific reasons
   if (modalConfig.value?.categoryFiltered && modalConfig.value?.differentTrees && isInSelectionMode.value) {
@@ -781,7 +897,16 @@ function selectFeat(feat: any) {
       // For categoryFiltered mode (Musical Instruments), the isFeatDisabled logic handles validation
       // No need for alerts - disabled feats can't be clicked
 
-      // For differentTrees mode (Dual Wielding - non-Musical), check if we're selecting from a different tree
+      // Halberd double mode: enforce different tree selection
+      if (selectionMode.value === 'halberd-double' && selectedFeats.value.length === 1) {
+        const firstSelectedFeat = getFeatById(selectedFeats.value[0])
+        if (firstSelectedFeat?.weapon_tree === feat.weapon_tree) {
+          alert('You must select one feat from Spear and one from Axe/Greataxe!')
+          return
+        }
+      }
+
+      // differentTrees mode (Dual Wielding - non-Musical): enforce different tree selection
       if (modalConfig.value?.differentTrees && !modalConfig.value?.categoryFiltered && selectedFeats.value.length === 1) {
         const firstSelectedFeat = getFeatById(selectedFeats.value[0])
         if (firstSelectedFeat?.weapon_tree === feat.weapon_tree) {
@@ -790,12 +915,18 @@ function selectFeat(feat: any) {
         }
       }
 
-      // Add feat if not already selected and we haven't reached the limit
+      // Add feat if not already selected and under the limit
       if (selectedFeats.value.length < 2) {
         selectedFeats.value.push(feat.id)
       }
     } else {
       // Removing a feat
+      // Halberd double mode - allow free deselection of either feat
+      if (selectionMode.value === 'halberd-double') {
+        selectedFeats.value.splice(index, 1)
+        return
+      }
+
       // Musical Instruments smart unselection logic
       if (modalConfig.value?.categoryFiltered && modalConfig.value?.differentTrees) {
         const removingFeat = getFeatById(feat.id)

@@ -33,24 +33,44 @@
             <span v-if="isMainHandModified" class="text-xs modified-badge ml-2">(modified)</span>
           </div>
 
-          <!-- Damage Type -->
-          <div class="flex gap-2">
+          <!-- CF3: Trick Weapon Form Selector -->
+          <div v-if="mainHandWeapon.is_trick" class="form-selector mb-3">
+            <div class="flex gap-2">
+              <button
+                @click="mainHandSelectedForm = 'primary'"
+                class="form-tab"
+                :class="{ 'form-tab-active': mainHandSelectedForm === 'primary' }"
+              >
+                {{ formatWeaponType(mainHandWeapon.weapon_type) }}
+              </button>
+              <button
+                @click="mainHandSelectedForm = 'secondary'"
+                class="form-tab"
+                :class="{ 'form-tab-active': mainHandSelectedForm === 'secondary' }"
+              >
+                {{ formatWeaponType(mainHandWeapon.second_type) }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Damage Type (hidden for catalysts unless user added damage data) -->
+          <div v-if="!mainHandIsCatalyst || mainHandHasDamage" class="flex gap-2">
             <span class="text-gray-400">Damage Type:</span>
             <span>{{ getDamageTypes(getEffectiveWeapon(mainHandWeapon, 'mainHand')?.dice) }}</span>
           </div>
 
-          <!-- Damage Dice -->
-          <div class="flex gap-2">
+          <!-- Damage Dice (hidden for catalysts unless user added damage data) -->
+          <div v-if="!mainHandIsCatalyst || mainHandHasDamage" class="flex gap-2">
             <span class="text-gray-400">Damage Dice:</span>
             <span>{{ formatDice(getEffectiveWeapon(mainHandWeapon, 'mainHand')?.dice) }}</span>
           </div>
 
-          <!-- Scaling Display -->
-          <div v-if="getEffectiveScaling(getEffectiveWeapon(mainHandWeapon, 'mainHand'), playerStore.CombatSettings.twoHandingMainHand).length > 0" class="flex gap-2">
+          <!-- Scaling Display (CF1: Shows damage type) - hidden for catalysts unless user added scaling -->
+          <div v-if="(!mainHandIsCatalyst || mainHandHasScaling) && getEffectiveScaling(getEffectiveWeapon(mainHandWeapon, 'mainHand'), playerStore.CombatSettings.twoHandingMainHand).length > 0" class="flex gap-2">
             <span class="text-gray-400">Scaling:</span>
             <span>
               <span v-for="(scaling, index) in getEffectiveScaling(getEffectiveWeapon(mainHandWeapon, 'mainHand'), playerStore.CombatSettings.twoHandingMainHand)" :key="index">
-                {{ scaling.stat }}: {{ getEffectiveGrade(scaling.stat, scaling.grade || scaling.value, playerStore.CombatSettings.twoHandingMainHand, getEffectiveWeapon(mainHandWeapon, 'mainHand')) }}
+                {{ formatDamageType(scaling.type) }} {{ scaling.stat }}: {{ getEffectiveGrade(scaling.stat, scaling.grade || scaling.value, playerStore.CombatSettings.twoHandingMainHand, getEffectiveWeapon(mainHandWeapon, 'mainHand')) }}
                 <span v-if="index < getEffectiveScaling(getEffectiveWeapon(mainHandWeapon, 'mainHand'), playerStore.CombatSettings.twoHandingMainHand).length - 1">, </span>
               </span>
             </span>
@@ -66,22 +86,22 @@
             </span>
           </div>
 
-          <!-- Calculated Scaling Bonus -->
-          <div class="flex gap-2">
+          <!-- Calculated Scaling Bonus (hidden for catalysts unless user added damage and scaling) -->
+          <div v-if="!mainHandIsCatalyst || (mainHandHasDamage && mainHandHasScaling)" class="flex gap-2">
             <span class="text-gray-400">Scaling Bonus:</span>
             <span :class="calculateWeaponScaling(getEffectiveWeapon(mainHandWeapon, 'mainHand'), playerStore.CombatSettings.twoHandingMainHand) >= 0 ? 'text-green-400' : 'text-red-400'" class="font-semibold">{{ calculateWeaponScaling(getEffectiveWeapon(mainHandWeapon, 'mainHand'), playerStore.CombatSettings.twoHandingMainHand) >= 0 ? '+' : '' }}{{ calculateWeaponScaling(getEffectiveWeapon(mainHandWeapon, 'mainHand'), playerStore.CombatSettings.twoHandingMainHand) }}</span>
           </div>
 
-          <!-- Total Damage Preview -->
-          <div class="flex gap-2">
+          <!-- Total Damage Preview (hidden for catalysts unless user added damage and scaling) -->
+          <div v-if="!mainHandIsCatalyst || (mainHandHasDamage && mainHandHasScaling)" class="flex gap-2">
             <span class="text-gray-400">Total Damage:</span>
             <span class="text-yellow-400 font-semibold">
               {{ formatDice(getEffectiveWeapon(mainHandWeapon, 'mainHand')?.dice) }} + {{ calculateWeaponScaling(getEffectiveWeapon(mainHandWeapon, 'mainHand'), playerStore.CombatSettings.twoHandingMainHand) }}
             </span>
           </div>
 
-          <!-- AP Cost -->
-          <div class="flex gap-2">
+          <!-- AP Cost (hidden for catalysts unless edited, hidden if 0 and not edited) -->
+          <div v-if="mainHandShowAp" class="flex gap-2">
             <span class="text-gray-400">AP Cost:</span>
             <span>{{ getEffectiveWeapon(mainHandWeapon, 'mainHand')?.ap || 'N/A' }}</span>
           </div>
@@ -124,20 +144,30 @@
                   v-model="die.type"
                   class="px-2 py-1 text-sm rounded bg-gray-700 text-white border border-gray-600"
                 >
+                  <!-- Damage Types -->
                   <option value="PHYSICAL">PHYSICAL</option>
                   <option value="MAGIC">MAGIC</option>
                   <option value="FIRE">FIRE</option>
                   <option value="LIGHTNING">LIGHTNING</option>
                   <option value="DARK">DARK</option>
                   <option value="TRUE">TRUE</option>
+                  <option value="DAMAGE_FP">DAMAGE FP</option>
+                  <option value="DAMAGE_AP">DAMAGE AP</option>
+                  <!-- Restoration -->
                   <option value="HEAL">HEAL</option>
-                  <option value="FROST">FROST</option>
+                  <option value="RESTORE_FP">RESTORE FP</option>
+                  <option value="RESTORE_AP">RESTORE AP</option>
+                  <!-- Status Buildup -->
                   <option value="BLEED">BLEED</option>
                   <option value="POISON">POISON</option>
                   <option value="TOXIC">TOXIC</option>
+                  <option value="FROST">FROST</option>
                   <option value="CURSE">CURSE</option>
                   <option value="POISE">POISE</option>
+                  <!-- Equipment -->
                   <option value="DURABILITY">DURABILITY</option>
+                  <!-- Manual -->
+                  <option value="VARYING">VARYING</option>
                 </select>
                 <button @click="removeDice('mainHand', index)" class="btn-warning-small">
                   Remove
@@ -148,15 +178,28 @@
               </button>
             </div>
 
-            <!-- Physical Scaling Edit -->
+            <!-- Damage Scaling Edit (CF1: Per-Damage-Type Scaling) -->
             <div class="mb-3">
-              <label class="block text-gray-400 text-xs mb-1">Physical Scaling:</label>
+              <label class="block text-gray-400 text-xs mb-1">Damage Scaling:</label>
               <div v-for="(scale, index) in tempMainHandMods.scaling" :key="index" class="flex items-center gap-2 mb-2">
+                <select
+                  v-model="scale.type"
+                  class="px-2 py-1 text-sm rounded bg-gray-700 text-white border border-gray-600"
+                >
+                  <option value="PHYSICAL">Physical</option>
+                  <option value="MAGIC">Magic</option>
+                  <option value="FIRE">Fire</option>
+                  <option value="LIGHTNING">Lightning</option>
+                  <option value="DARK">Dark</option>
+                </select>
                 <select
                   v-model="scale.stat"
                   class="px-2 py-1 text-sm rounded bg-gray-700 text-white border border-gray-600"
                 >
-                  <option v-for="stat in getAvailableStatsForScaling('mainHand', index)" :key="stat" :value="stat">{{ stat }}</option>
+                  <option value="STR">STR</option>
+                  <option value="DEX">DEX</option>
+                  <option value="INT">INT</option>
+                  <option value="FAI">FAI</option>
                 </select>
                 <select
                   v-model="scale.value"
@@ -305,24 +348,44 @@
             <span v-if="isOffHandModified" class="text-xs modified-badge ml-2">(modified)</span>
           </div>
 
-          <!-- Damage Type -->
-          <div class="flex gap-2">
+          <!-- CF3: Trick Weapon Form Selector -->
+          <div v-if="offHandWeapon.is_trick" class="form-selector mb-3">
+            <div class="flex gap-2">
+              <button
+                @click="offHandSelectedForm = 'primary'"
+                class="form-tab"
+                :class="{ 'form-tab-active': offHandSelectedForm === 'primary' }"
+              >
+                {{ formatWeaponType(offHandWeapon.weapon_type) }}
+              </button>
+              <button
+                @click="offHandSelectedForm = 'secondary'"
+                class="form-tab"
+                :class="{ 'form-tab-active': offHandSelectedForm === 'secondary' }"
+              >
+                {{ formatWeaponType(offHandWeapon.second_type) }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Damage Type (hidden for catalysts unless user added damage data) -->
+          <div v-if="!offHandIsCatalyst || offHandHasDamage" class="flex gap-2">
             <span class="text-gray-400">Damage Type:</span>
             <span>{{ getDamageTypes(getEffectiveWeapon(offHandWeapon, 'offHand')?.dice) }}</span>
           </div>
 
-          <!-- Damage Dice -->
-          <div class="flex gap-2">
+          <!-- Damage Dice (hidden for catalysts unless user added damage data) -->
+          <div v-if="!offHandIsCatalyst || offHandHasDamage" class="flex gap-2">
             <span class="text-gray-400">Damage Dice:</span>
             <span>{{ formatDice(getEffectiveWeapon(offHandWeapon, 'offHand')?.dice) }}</span>
           </div>
 
-          <!-- Scaling Display -->
-          <div v-if="getEffectiveScaling(getEffectiveWeapon(offHandWeapon, 'offHand'), playerStore.CombatSettings.twoHandingOffHand).length > 0" class="flex gap-2">
+          <!-- Scaling Display (CF1: Shows damage type) - hidden for catalysts unless user added scaling -->
+          <div v-if="(!offHandIsCatalyst || offHandHasScaling) && getEffectiveScaling(getEffectiveWeapon(offHandWeapon, 'offHand'), playerStore.CombatSettings.twoHandingOffHand).length > 0" class="flex gap-2">
             <span class="text-gray-400">Scaling:</span>
             <span>
               <span v-for="(scaling, index) in getEffectiveScaling(getEffectiveWeapon(offHandWeapon, 'offHand'), playerStore.CombatSettings.twoHandingOffHand)" :key="index">
-                {{ scaling.stat }}: {{ getEffectiveGrade(scaling.stat, scaling.grade || scaling.value, playerStore.CombatSettings.twoHandingOffHand, getEffectiveWeapon(offHandWeapon, 'offHand')) }}
+                {{ formatDamageType(scaling.type) }} {{ scaling.stat }}: {{ getEffectiveGrade(scaling.stat, scaling.grade || scaling.value, playerStore.CombatSettings.twoHandingOffHand, getEffectiveWeapon(offHandWeapon, 'offHand')) }}
                 <span v-if="index < getEffectiveScaling(getEffectiveWeapon(offHandWeapon, 'offHand'), playerStore.CombatSettings.twoHandingOffHand).length - 1">, </span>
               </span>
             </span>
@@ -338,22 +401,22 @@
             </span>
           </div>
 
-          <!-- Calculated Scaling Bonus -->
-          <div class="flex gap-2">
+          <!-- Calculated Scaling Bonus (hidden for catalysts unless user added damage and scaling) -->
+          <div v-if="!offHandIsCatalyst || (offHandHasDamage && offHandHasScaling)" class="flex gap-2">
             <span class="text-gray-400">Scaling Bonus:</span>
             <span :class="calculateWeaponScaling(getEffectiveWeapon(offHandWeapon, 'offHand'), playerStore.CombatSettings.twoHandingOffHand) >= 0 ? 'text-green-400' : 'text-red-400'" class="font-semibold">{{ calculateWeaponScaling(getEffectiveWeapon(offHandWeapon, 'offHand'), playerStore.CombatSettings.twoHandingOffHand) >= 0 ? '+' : '' }}{{ calculateWeaponScaling(getEffectiveWeapon(offHandWeapon, 'offHand'), playerStore.CombatSettings.twoHandingOffHand) }}</span>
           </div>
 
-          <!-- Total Damage Preview -->
-          <div class="flex gap-2">
+          <!-- Total Damage Preview (hidden for catalysts unless user added damage and scaling) -->
+          <div v-if="!offHandIsCatalyst || (offHandHasDamage && offHandHasScaling)" class="flex gap-2">
             <span class="text-gray-400">Total Damage:</span>
             <span class="text-yellow-400 font-semibold">
               {{ formatDice(getEffectiveWeapon(offHandWeapon, 'offHand')?.dice) }} + {{ calculateWeaponScaling(getEffectiveWeapon(offHandWeapon, 'offHand'), playerStore.CombatSettings.twoHandingOffHand) }}
             </span>
           </div>
 
-          <!-- AP Cost -->
-          <div class="flex gap-2">
+          <!-- AP Cost (hidden for catalysts unless edited, hidden if 0 and not edited) -->
+          <div v-if="offHandShowAp" class="flex gap-2">
             <span class="text-gray-400">AP Cost:</span>
             <span>{{ getEffectiveWeapon(offHandWeapon, 'offHand')?.ap || 'N/A' }}</span>
           </div>
@@ -396,20 +459,30 @@
                   v-model="die.type"
                   class="px-2 py-1 text-sm rounded bg-gray-700 text-white border border-gray-600"
                 >
+                  <!-- Damage Types -->
                   <option value="PHYSICAL">PHYSICAL</option>
                   <option value="MAGIC">MAGIC</option>
                   <option value="FIRE">FIRE</option>
                   <option value="LIGHTNING">LIGHTNING</option>
                   <option value="DARK">DARK</option>
                   <option value="TRUE">TRUE</option>
+                  <option value="DAMAGE_FP">DAMAGE FP</option>
+                  <option value="DAMAGE_AP">DAMAGE AP</option>
+                  <!-- Restoration -->
                   <option value="HEAL">HEAL</option>
-                  <option value="FROST">FROST</option>
+                  <option value="RESTORE_FP">RESTORE FP</option>
+                  <option value="RESTORE_AP">RESTORE AP</option>
+                  <!-- Status Buildup -->
                   <option value="BLEED">BLEED</option>
                   <option value="POISON">POISON</option>
                   <option value="TOXIC">TOXIC</option>
+                  <option value="FROST">FROST</option>
                   <option value="CURSE">CURSE</option>
                   <option value="POISE">POISE</option>
+                  <!-- Equipment -->
                   <option value="DURABILITY">DURABILITY</option>
+                  <!-- Manual -->
+                  <option value="VARYING">VARYING</option>
                 </select>
                 <button @click="removeDice('offHand', index)" class="btn-warning-small">
                   Remove
@@ -420,15 +493,28 @@
               </button>
             </div>
 
-            <!-- Physical Scaling Edit -->
+            <!-- Damage Scaling Edit (CF1: Per-Damage-Type Scaling) -->
             <div class="mb-3">
-              <label class="block text-gray-400 text-xs mb-1">Physical Scaling:</label>
+              <label class="block text-gray-400 text-xs mb-1">Damage Scaling:</label>
               <div v-for="(scale, index) in tempOffHandMods.scaling" :key="index" class="flex items-center gap-2 mb-2">
+                <select
+                  v-model="scale.type"
+                  class="px-2 py-1 text-sm rounded bg-gray-700 text-white border border-gray-600"
+                >
+                  <option value="PHYSICAL">Physical</option>
+                  <option value="MAGIC">Magic</option>
+                  <option value="FIRE">Fire</option>
+                  <option value="LIGHTNING">Lightning</option>
+                  <option value="DARK">Dark</option>
+                </select>
                 <select
                   v-model="scale.stat"
                   class="px-2 py-1 text-sm rounded bg-gray-700 text-white border border-gray-600"
                 >
-                  <option v-for="stat in getAvailableStatsForScaling('offHand', index)" :key="stat" :value="stat">{{ stat }}</option>
+                  <option value="STR">STR</option>
+                  <option value="DEX">DEX</option>
+                  <option value="INT">INT</option>
+                  <option value="FAI">FAI</option>
                 </select>
                 <select
                   v-model="scale.value"
@@ -565,6 +651,9 @@ import {
 const playerStore = usePlayerStore()
 const compendiumStore = useCompendiumStore()
 
+// Catalyst weapon types - these don't show physical damage fields by default
+const CATALYST_TYPES = ['STAFF', 'CHIME', 'TALISMAN', 'PYRO', 'CRUCIBLE']
+
 // Edit mode state
 const editingMainHand = ref(false)
 const editingOffHand = ref(false)
@@ -576,6 +665,10 @@ const tempOffHandMods = ref<any>(null)
 // Weapon skills collapse state
 const mainHandSkillsExpanded = ref(false)
 const offHandSkillsExpanded = ref(false)
+
+// CF3: Trick weapon form selection (primary/secondary)
+const mainHandSelectedForm = ref<'primary' | 'secondary'>('primary')
+const offHandSelectedForm = ref<'primary' | 'secondary'>('primary')
 
 // Check if weapon is modified
 const isMainHandModified = computed(() => {
@@ -624,23 +717,40 @@ function getWeaponSkillFromUrl(skillUrl: string | null | undefined): WeaponSkill
 }
 
 // Computed refs for weapon skills (look up from compendium store)
+// CF3: Now handles form-specific skills for trick weapons
 const mainHandPrimarySkill = computed(() => {
   if (!mainHandWeapon.value) return null
+  // CF3: For trick weapons, use form-specific skill
+  if (mainHandWeapon.value.is_trick && mainHandSelectedForm.value === 'secondary') {
+    return getWeaponSkillFromUrl(mainHandWeapon.value.second_skill_primary)
+  }
   return getWeaponSkillFromUrl(mainHandWeapon.value.skill_primary)
 })
 
 const mainHandSecondarySkill = computed(() => {
   if (!mainHandWeapon.value) return null
+  // CF3: For trick weapons, use form-specific skill
+  if (mainHandWeapon.value.is_trick && mainHandSelectedForm.value === 'secondary') {
+    return getWeaponSkillFromUrl(mainHandWeapon.value.second_skill_secondary)
+  }
   return getWeaponSkillFromUrl(mainHandWeapon.value.skill_secondary)
 })
 
 const offHandPrimarySkill = computed(() => {
   if (!offHandWeapon.value) return null
+  // CF3: For trick weapons, use form-specific skill
+  if (offHandWeapon.value.is_trick && offHandSelectedForm.value === 'secondary') {
+    return getWeaponSkillFromUrl(offHandWeapon.value.second_skill_primary)
+  }
   return getWeaponSkillFromUrl(offHandWeapon.value.skill_primary)
 })
 
 const offHandSecondarySkill = computed(() => {
   if (!offHandWeapon.value) return null
+  // CF3: For trick weapons, use form-specific skill
+  if (offHandWeapon.value.is_trick && offHandSelectedForm.value === 'secondary') {
+    return getWeaponSkillFromUrl(offHandWeapon.value.second_skill_secondary)
+  }
   return getWeaponSkillFromUrl(offHandWeapon.value.skill_secondary)
 })
 
@@ -655,42 +765,215 @@ function getEffectiveGrade(stat: string, grade: string, twoHanding: boolean, ori
 }
 
 // Get effective scaling array (adds STR: E if two-handing and no STR scaling exists)
+// CF1: Now includes damage type in scaling entries
 function getEffectiveScaling(weapon: any, twoHanding: boolean): any[] {
   if (!weapon || !weapon.scaling) return []
 
   const scaling = [...weapon.scaling]
 
-  // If two-handing and no STR scaling exists, add STR: E
+  // If two-handing and no STR scaling exists, add Physical STR: E
   if (twoHanding) {
     const hasStrScaling = scaling.some(s => s.stat === 'STR')
     if (!hasStrScaling) {
-      scaling.unshift({ stat: 'STR', grade: 'E', value: 'E' })
+      // CF1: Include type property - defaults to PHYSICAL for two-handing bonus
+      scaling.unshift({ type: 'PHYSICAL', stat: 'STR', grade: 'E', value: 'E' })
     }
   }
 
   return scaling
 }
 
+// CF1: Format damage type for display (PHYSICAL -> Physical)
+function formatDamageType(type: string): string {
+  if (!type) return ''
+  return type.charAt(0).toUpperCase() + type.slice(1).toLowerCase()
+}
+
+// Check if a weapon is a catalyst type
+function isCatalyst(weapon: any): boolean {
+  if (!weapon) return false
+  const weaponType = weapon.weapon_type?.toUpperCase()
+  return CATALYST_TYPES.includes(weaponType)
+}
+
+// Check if weapon has damage dice data (for showing damage fields on catalysts that were edited)
+function hasDamageData(weapon: any): boolean {
+  if (!weapon) return false
+  const dice = weapon.dice || []
+  return dice.length > 0 && dice.some((d: any) => d.count > 0 && d.value > 0)
+}
+
+// Check if weapon has physical scaling data
+function hasPhysicalScaling(weapon: any): boolean {
+  if (!weapon) return false
+  const scaling = weapon.scaling || []
+  return scaling.length > 0
+}
+
+// Computed helpers for catalyst detection (to keep template clean)
+const mainHandEffective = computed(() => getEffectiveWeapon(mainHandWeapon.value, 'mainHand'))
+const offHandEffective = computed(() => getEffectiveWeapon(offHandWeapon.value, 'offHand'))
+
+const mainHandIsCatalyst = computed(() => isCatalyst(mainHandEffective.value))
+const offHandIsCatalyst = computed(() => isCatalyst(offHandEffective.value))
+
+const mainHandHasDamage = computed(() => hasDamageData(mainHandEffective.value))
+const offHandHasDamage = computed(() => hasDamageData(offHandEffective.value))
+
+const mainHandHasScaling = computed(() => hasPhysicalScaling(mainHandEffective.value))
+const offHandHasScaling = computed(() => hasPhysicalScaling(offHandEffective.value))
+
+// Check if AP was edited by user (for showing AP on catalysts only when edited)
+const mainHandApEdited = computed(() => {
+  if (!mainHandWeapon.value) return false
+  const mods = playerStore.WeaponModifications[mainHandWeapon.value.id]
+  return mods && mods.ap !== undefined
+})
+
+const offHandApEdited = computed(() => {
+  if (!offHandWeapon.value) return false
+  const mods = playerStore.WeaponModifications[offHandWeapon.value.id]
+  return mods && mods.ap !== undefined
+})
+
+// Check if AP should be shown (hide for catalysts unless edited, hide if 0 and not edited)
+const mainHandShowAp = computed(() => {
+  const effective = mainHandEffective.value
+  if (!effective) return false
+  const ap = effective.ap
+  // Hide if catalyst and not edited
+  if (mainHandIsCatalyst.value && !mainHandApEdited.value) return false
+  // Hide if AP is 0 and not edited
+  if (ap === 0 && !mainHandApEdited.value) return false
+  return true
+})
+
+const offHandShowAp = computed(() => {
+  const effective = offHandEffective.value
+  if (!effective) return false
+  const ap = effective.ap
+  // Hide if catalyst and not edited
+  if (offHandIsCatalyst.value && !offHandApEdited.value) return false
+  // Hide if AP is 0 and not edited
+  if (ap === 0 && !offHandApEdited.value) return false
+  return true
+})
+
+// CF3: Get form-specific data from weapon
+function getFormData(weapon: any, form: 'primary' | 'secondary') {
+  if (!weapon) return null
+
+  // Filter dice, scaling, spell_scaling by form
+  const dice = (weapon.dice || []).filter((d: any) => (d.form || 'primary') === form)
+  const scaling = (weapon.scaling || []).filter((s: any) => (s.form || 'primary') === form)
+  const spellScaling = (weapon.spell_scaling || []).filter((s: any) => (s.form || 'primary') === form)
+
+  // Get form-specific requirements (handle both array and single object)
+  let requirements = null
+  if (Array.isArray(weapon.requirements)) {
+    requirements = weapon.requirements.find((r: any) => (r.form || 'primary') === form) || null
+  } else if (weapon.requirements && (weapon.requirements.form || 'primary') === form) {
+    requirements = weapon.requirements
+  }
+
+  // Get form-specific AP, skills, and infusion
+  const ap = form === 'primary' ? weapon.ap : (weapon.second_ap ?? weapon.ap)
+  const skillPrimary = form === 'primary' ? weapon.skill_primary : weapon.second_skill_primary
+  const skillSecondary = form === 'primary' ? weapon.skill_secondary : weapon.second_skill_secondary
+  const infusion = form === 'primary' ? weapon.infusion : weapon.second_infusion
+  const weaponType = form === 'primary' ? weapon.weapon_type : (weapon.second_type || weapon.weapon_type)
+
+  return {
+    ...weapon,
+    ap,
+    dice,
+    scaling,
+    spell_scaling: spellScaling,
+    requirements,
+    skill_primary: skillPrimary,
+    skill_secondary: skillSecondary,
+    infusion,
+    weapon_type: weaponType,
+    _form: form // Track which form this data is for
+  }
+}
+
+// CF3: Format weapon type for display
+function formatWeaponType(type: string): string {
+  if (!type) return ''
+  return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
 // Get effective weapon stats (with modifications applied)
+// CF3: Now handles form-specific data for trick weapons
 function getEffectiveWeapon(weapon: any, hand: 'mainHand' | 'offHand') {
   if (!weapon) return null
+
+  // CF3: Get the selected form for this hand
+  const selectedForm = hand === 'mainHand' ? mainHandSelectedForm.value : offHandSelectedForm.value
+
+  // CF3: For trick weapons, get form-specific base data
+  let baseWeapon = weapon
+  if (weapon.is_trick) {
+    baseWeapon = getFormData(weapon, selectedForm)
+  }
 
   // Get modifications by weapon ID
   const mods = playerStore.WeaponModifications[weapon.id]
 
-  if (!mods) return weapon
+  if (!mods) return baseWeapon
+
+  // CF3: For trick weapons, filter modifications by form
+  let effectiveDice = baseWeapon.dice
+  let effectiveScaling = baseWeapon.scaling
+  let effectiveSpellScaling = baseWeapon.spell_scaling
+  let effectiveAp = baseWeapon.ap
+
+  if (weapon.is_trick) {
+    // Filter modifications by selected form
+    if (mods.dice && mods.dice.length > 0) {
+      effectiveDice = mods.dice.filter((d: any) => (d.form || 'primary') === selectedForm)
+    }
+    if (mods.scaling && mods.scaling.length > 0) {
+      effectiveScaling = mods.scaling.filter((s: any) => (s.form || 'primary') === selectedForm)
+    }
+    if (mods.spell_scaling && mods.spell_scaling.length > 0) {
+      effectiveSpellScaling = mods.spell_scaling.filter((s: any) => (s.form || 'primary') === selectedForm)
+    }
+    // CF3: Use form-specific AP modification
+    if (selectedForm === 'primary' && mods.ap !== undefined) {
+      effectiveAp = mods.ap
+    } else if (selectedForm === 'secondary' && mods.second_ap !== undefined) {
+      effectiveAp = mods.second_ap
+    }
+  } else {
+    // Non-trick weapon: use modifications as before
+    if (mods.dice && mods.dice.length > 0) {
+      effectiveDice = mods.dice
+    }
+    if (mods.scaling && mods.scaling.length > 0) {
+      effectiveScaling = mods.scaling
+    }
+    if (mods.spell_scaling && mods.spell_scaling.length > 0) {
+      effectiveSpellScaling = mods.spell_scaling
+    }
+    if (mods.ap !== undefined) {
+      effectiveAp = mods.ap
+    }
+  }
 
   // Return modified weapon with overrides
   return {
-    ...weapon,
-    ap: mods.ap !== undefined ? mods.ap : weapon.ap,
-    dice: mods.dice && mods.dice.length > 0 ? mods.dice : weapon.dice,
-    scaling: mods.scaling && mods.scaling.length > 0 ? mods.scaling : weapon.scaling,
-    spell_scaling: mods.spell_scaling && mods.spell_scaling.length > 0 ? mods.spell_scaling : weapon.spell_scaling
+    ...baseWeapon,
+    ap: effectiveAp,
+    dice: effectiveDice,
+    scaling: effectiveScaling,
+    spell_scaling: effectiveSpellScaling
   }
 }
 
 // Toggle edit mode
+// CF3: Now handles form-specific editing for trick weapons
 function toggleEditMode(hand: 'mainHand' | 'offHand') {
   if (hand === 'mainHand') {
     if (editingMainHand.value) {
@@ -703,17 +986,41 @@ function toggleEditMode(hand: 'mainHand' | 'offHand') {
       if (!weapon) return
 
       const currentMods = playerStore.WeaponModifications[weapon.id]
+      const selectedForm = mainHandSelectedForm.value
 
       if (currentMods) {
         // Edit existing modifications
-        tempMainHandMods.value = JSON.parse(JSON.stringify(currentMods))
+        // CF3: For trick weapons, filter to show only selected form's data
+        if (weapon.is_trick) {
+          tempMainHandMods.value = {
+            ap: selectedForm === 'primary' ? (currentMods.ap ?? weapon.ap) : (currentMods.second_ap ?? weapon.second_ap ?? weapon.ap),
+            dice: (currentMods.dice || weapon.dice || []).filter((d: any) => (d.form || 'primary') === selectedForm).map((d: any) => ({ ...d })),
+            scaling: (currentMods.scaling || weapon.scaling || []).filter((s: any) => (s.form || 'primary') === selectedForm).map((s: any) => ({ ...s })),
+            spell_scaling: (currentMods.spell_scaling || weapon.spell_scaling || []).filter((s: any) => (s.form || 'primary') === selectedForm).map((s: any) => ({ ...s })),
+            _editingForm: selectedForm // Tracks the active form being edited
+          }
+        } else {
+          tempMainHandMods.value = JSON.parse(JSON.stringify(currentMods))
+        }
       } else {
         // Create new modifications from weapon
-        tempMainHandMods.value = {
-          ap: weapon.ap,
-          dice: JSON.parse(JSON.stringify(weapon.dice || [])),
-          scaling: JSON.parse(JSON.stringify(weapon.scaling || [])),
-          spell_scaling: JSON.parse(JSON.stringify(weapon.spell_scaling || []))
+        // CF3: For trick weapons, use form-specific data
+        if (weapon.is_trick) {
+          const formData = getFormData(weapon, selectedForm)
+          tempMainHandMods.value = {
+            ap: formData.ap,
+            dice: JSON.parse(JSON.stringify(formData.dice || [])),
+            scaling: JSON.parse(JSON.stringify(formData.scaling || [])),
+            spell_scaling: JSON.parse(JSON.stringify(formData.spell_scaling || [])),
+            _editingForm: selectedForm
+          }
+        } else {
+          tempMainHandMods.value = {
+            ap: weapon.ap,
+            dice: JSON.parse(JSON.stringify(weapon.dice || [])),
+            scaling: JSON.parse(JSON.stringify(weapon.scaling || [])),
+            spell_scaling: JSON.parse(JSON.stringify(weapon.spell_scaling || []))
+          }
         }
       }
       editingMainHand.value = true
@@ -727,15 +1034,39 @@ function toggleEditMode(hand: 'mainHand' | 'offHand') {
       if (!weapon) return
 
       const currentMods = playerStore.WeaponModifications[weapon.id]
+      const selectedForm = offHandSelectedForm.value
 
       if (currentMods) {
-        tempOffHandMods.value = JSON.parse(JSON.stringify(currentMods))
+        // CF3: For trick weapons, filter to show only selected form's data
+        if (weapon.is_trick) {
+          tempOffHandMods.value = {
+            ap: selectedForm === 'primary' ? (currentMods.ap ?? weapon.ap) : (currentMods.second_ap ?? weapon.second_ap ?? weapon.ap),
+            dice: (currentMods.dice || weapon.dice || []).filter((d: any) => (d.form || 'primary') === selectedForm).map((d: any) => ({ ...d })),
+            scaling: (currentMods.scaling || weapon.scaling || []).filter((s: any) => (s.form || 'primary') === selectedForm).map((s: any) => ({ ...s })),
+            spell_scaling: (currentMods.spell_scaling || weapon.spell_scaling || []).filter((s: any) => (s.form || 'primary') === selectedForm).map((s: any) => ({ ...s })),
+            _editingForm: selectedForm
+          }
+        } else {
+          tempOffHandMods.value = JSON.parse(JSON.stringify(currentMods))
+        }
       } else {
-        tempOffHandMods.value = {
-          ap: weapon.ap,
-          dice: JSON.parse(JSON.stringify(weapon.dice || [])),
-          scaling: JSON.parse(JSON.stringify(weapon.scaling || [])),
-          spell_scaling: JSON.parse(JSON.stringify(weapon.spell_scaling || []))
+        // CF3: For trick weapons, use form-specific data
+        if (weapon.is_trick) {
+          const formData = getFormData(weapon, selectedForm)
+          tempOffHandMods.value = {
+            ap: formData.ap,
+            dice: JSON.parse(JSON.stringify(formData.dice || [])),
+            scaling: JSON.parse(JSON.stringify(formData.scaling || [])),
+            spell_scaling: JSON.parse(JSON.stringify(formData.spell_scaling || [])),
+            _editingForm: selectedForm
+          }
+        } else {
+          tempOffHandMods.value = {
+            ap: weapon.ap,
+            dice: JSON.parse(JSON.stringify(weapon.dice || [])),
+            scaling: JSON.parse(JSON.stringify(weapon.scaling || [])),
+            spell_scaling: JSON.parse(JSON.stringify(weapon.spell_scaling || []))
+          }
         }
       }
       editingOffHand.value = true
@@ -744,6 +1075,7 @@ function toggleEditMode(hand: 'mainHand' | 'offHand') {
 }
 
 // Save modifications
+// CF3: Now handles form-specific modifications for trick weapons
 function saveModifications(hand: 'mainHand' | 'offHand') {
   // Validate scaling before saving
   if (!validateScaling(hand)) {
@@ -754,8 +1086,44 @@ function saveModifications(hand: 'mainHand' | 'offHand') {
     const weapon = mainHandWeapon.value
     if (!weapon) return
 
-    // Save modifications by weapon ID
-    playerStore.WeaponModifications[weapon.id] = tempMainHandMods.value
+    // CF3: For trick weapons, merge form-specific modifications
+    if (weapon.is_trick && tempMainHandMods.value._editingForm) {
+      const editingForm = tempMainHandMods.value._editingForm
+      const existingMods = playerStore.WeaponModifications[weapon.id] || {
+        ap: weapon.ap,
+        second_ap: weapon.second_ap,
+        dice: JSON.parse(JSON.stringify(weapon.dice || [])),
+        scaling: JSON.parse(JSON.stringify(weapon.scaling || [])),
+        spell_scaling: JSON.parse(JSON.stringify(weapon.spell_scaling || []))
+      }
+
+      // Update AP for the correct form
+      if (editingForm === 'primary') {
+        existingMods.ap = tempMainHandMods.value.ap
+      } else {
+        existingMods.second_ap = tempMainHandMods.value.ap
+      }
+
+      // Merge dice: remove old form entries, add new ones with form field
+      existingMods.dice = (existingMods.dice || []).filter((d: any) => (d.form || 'primary') !== editingForm)
+      const newDice = tempMainHandMods.value.dice.map((d: any) => ({ ...d, form: editingForm }))
+      existingMods.dice = [...existingMods.dice, ...newDice]
+
+      // Merge scaling: remove old form entries, add new ones with form field
+      existingMods.scaling = (existingMods.scaling || []).filter((s: any) => (s.form || 'primary') !== editingForm)
+      const newScaling = tempMainHandMods.value.scaling.map((s: any) => ({ ...s, form: editingForm }))
+      existingMods.scaling = [...existingMods.scaling, ...newScaling]
+
+      // Merge spell_scaling: remove old form entries, add new ones with form field
+      existingMods.spell_scaling = (existingMods.spell_scaling || []).filter((s: any) => (s.form || 'primary') !== editingForm)
+      const newSpellScaling = tempMainHandMods.value.spell_scaling.map((s: any) => ({ ...s, form: editingForm }))
+      existingMods.spell_scaling = [...existingMods.spell_scaling, ...newSpellScaling]
+
+      playerStore.WeaponModifications[weapon.id] = existingMods
+    } else {
+      // Non-trick weapon: save as before
+      playerStore.WeaponModifications[weapon.id] = tempMainHandMods.value
+    }
     playerStore.save()
     editingMainHand.value = false
     tempMainHandMods.value = null
@@ -763,8 +1131,43 @@ function saveModifications(hand: 'mainHand' | 'offHand') {
     const weapon = offHandWeapon.value
     if (!weapon) return
 
-    // Save modifications by weapon ID
-    playerStore.WeaponModifications[weapon.id] = tempOffHandMods.value
+    // CF3: For trick weapons, merge form-specific modifications
+    if (weapon.is_trick && tempOffHandMods.value._editingForm) {
+      const editingForm = tempOffHandMods.value._editingForm
+      const existingMods = playerStore.WeaponModifications[weapon.id] || {
+        ap: weapon.ap,
+        second_ap: weapon.second_ap,
+        dice: JSON.parse(JSON.stringify(weapon.dice || [])),
+        scaling: JSON.parse(JSON.stringify(weapon.scaling || [])),
+        spell_scaling: JSON.parse(JSON.stringify(weapon.spell_scaling || []))
+      }
+
+      // Update AP for the correct form
+      if (editingForm === 'primary') {
+        existingMods.ap = tempOffHandMods.value.ap
+      } else {
+        existingMods.second_ap = tempOffHandMods.value.ap
+      }
+
+      // Merge dice
+      existingMods.dice = (existingMods.dice || []).filter((d: any) => (d.form || 'primary') !== editingForm)
+      const newDice = tempOffHandMods.value.dice.map((d: any) => ({ ...d, form: editingForm }))
+      existingMods.dice = [...existingMods.dice, ...newDice]
+
+      // Merge scaling
+      existingMods.scaling = (existingMods.scaling || []).filter((s: any) => (s.form || 'primary') !== editingForm)
+      const newScaling = tempOffHandMods.value.scaling.map((s: any) => ({ ...s, form: editingForm }))
+      existingMods.scaling = [...existingMods.scaling, ...newScaling]
+
+      // Merge spell_scaling
+      existingMods.spell_scaling = (existingMods.spell_scaling || []).filter((s: any) => (s.form || 'primary') !== editingForm)
+      const newSpellScaling = tempOffHandMods.value.spell_scaling.map((s: any) => ({ ...s, form: editingForm }))
+      existingMods.spell_scaling = [...existingMods.spell_scaling, ...newSpellScaling]
+
+      playerStore.WeaponModifications[weapon.id] = existingMods
+    } else {
+      playerStore.WeaponModifications[weapon.id] = tempOffHandMods.value
+    }
     playerStore.save()
     editingOffHand.value = false
     tempOffHandMods.value = null
@@ -795,10 +1198,16 @@ function resetModifications(hand: 'mainHand' | 'offHand') {
 }
 
 // Add dice
+// CF3: Includes form field for trick weapons
 function addDice(hand: 'mainHand' | 'offHand') {
   const mods = hand === 'mainHand' ? tempMainHandMods.value : tempOffHandMods.value
   if (mods && mods.dice) {
-    mods.dice.push({ type: 'PHYSICAL', count: 1, value: 6 })
+    const newDice: any = { type: 'PHYSICAL', count: 1, value: 6 }
+    // CF3: Add form field if editing a trick weapon
+    if (mods._editingForm) {
+      newDice.form = mods._editingForm
+    }
+    mods.dice.push(newDice)
   }
 }
 
@@ -811,30 +1220,23 @@ function removeDice(hand: 'mainHand' | 'offHand', index: number) {
 }
 
 // Get available stats for a specific scaling entry (filters out already-used stats)
+// CF1: No longer restricts to unique stats - now allows any stat with different damage types
 function getAvailableStatsForScaling(hand: 'mainHand' | 'offHand', currentIndex: number): string[] {
-  const mods = hand === 'mainHand' ? tempMainHandMods.value : tempOffHandMods.value
-  if (!mods || !mods.scaling) return ['STR', 'DEX', 'FAI', 'INT']
-
-  // Get all stats used by OTHER scaling entries (not the current one)
-  const usedStats = mods.scaling
-    .map((s: any, idx: number) => idx !== currentIndex ? s.stat : null)
-    .filter((stat: string | null) => stat !== null)
-
-  // Return stats that are not used by other entries
-  return ['STR', 'DEX', 'FAI', 'INT'].filter(stat => !usedStats.includes(stat))
+  // All stats available - multiple entries per stat allowed (with different damage types)
+  return ['STR', 'DEX', 'INT', 'FAI']
 }
 
-// Validate scaling to prevent duplicates (called before saving)
+// CF1: Validate scaling to prevent duplicate (type, stat) combinations
 function validateScaling(hand: 'mainHand' | 'offHand'): boolean {
   const mods = hand === 'mainHand' ? tempMainHandMods.value : tempOffHandMods.value
   if (!mods || !mods.scaling) return true
 
-  // Check for duplicate stats in physical scaling
-  const stats = mods.scaling.map((s: any) => s.stat)
-  const hasDuplicates = stats.length !== new Set(stats).size
+  // Check for duplicate (type, stat) combinations
+  const combos = mods.scaling.map((s: any) => `${s.type}-${s.stat}`)
+  const hasDuplicates = combos.length !== new Set(combos).size
 
   if (hasDuplicates) {
-    alert('Physical Scaling cannot have duplicate stat types. Each stat (STR, DEX, FAI, INT) can only appear once.')
+    alert('Damage Scaling cannot have duplicate damage type + stat combinations. Each combination (e.g., Physical STR) can only appear once.')
     return false
   }
 
@@ -842,21 +1244,33 @@ function validateScaling(hand: 'mainHand' | 'offHand'): boolean {
 }
 
 // Add scaling
+// CF1: Updated to allow multiple scaling entries with unique (type, stat) combinations
+// CF3: Includes form field for trick weapons
 function addScaling(hand: 'mainHand' | 'offHand') {
   const mods = hand === 'mainHand' ? tempMainHandMods.value : tempOffHandMods.value
   if (mods && mods.scaling) {
-    // Check if all stat types (STR, DEX, FAI, INT) are already used
-    const existingStats = mods.scaling.map((s: any) => s.stat)
-    const availableStats = ['STR', 'DEX', 'FAI', 'INT'].filter(stat => !existingStats.includes(stat))
+    const damageTypes = ['PHYSICAL', 'MAGIC', 'FIRE', 'LIGHTNING', 'DARK']
+    const stats = ['STR', 'DEX', 'INT', 'FAI']
 
-    if (availableStats.length === 0) {
-      // All stats already used, cannot add more
-      alert('Cannot add more scaling: All stat types (STR, DEX, FAI, INT) are already in use.')
-      return
+    // Find first available (type, stat) combination
+    const existingCombos = mods.scaling.map((s: any) => `${s.type}-${s.stat}`)
+
+    for (const type of damageTypes) {
+      for (const stat of stats) {
+        if (!existingCombos.includes(`${type}-${stat}`)) {
+          const newScaling: any = { type, stat, value: 'E' }
+          // CF3: Add form field if editing a trick weapon
+          if (mods._editingForm) {
+            newScaling.form = mods._editingForm
+          }
+          mods.scaling.push(newScaling)
+          return
+        }
+      }
     }
 
-    // Add scaling with first available stat
-    mods.scaling.push({ type: 'physical', stat: availableStats[0], value: 'E' })
+    // All combinations used (5 types × 4 stats = 20 max)
+    alert('Cannot add more scaling: All damage type + stat combinations are already in use.')
   }
 }
 
@@ -869,12 +1283,18 @@ function removeScaling(hand: 'mainHand' | 'offHand', index: number) {
 }
 
 // Add spell scaling
+// CF3: Includes form field for trick weapons
 function addSpellScaling(hand: 'mainHand' | 'offHand') {
   const mods = hand === 'mainHand' ? tempMainHandMods.value : tempOffHandMods.value
   if (mods && mods.spell_scaling) {
     // Spell scaling can have multiple entries per stat (for different requirements)
-    // So we just add a new entry with default values
-    mods.spell_scaling.push({ stat: 'INT', requirement: 0, value: 'D' })
+    // Add new entry with default values
+    const newSpellScaling: any = { stat: 'INT', requirement: 0, value: 'D' }
+    // CF3: Add form field if editing a trick weapon
+    if (mods._editingForm) {
+      newSpellScaling.form = mods._editingForm
+    }
+    mods.spell_scaling.push(newSpellScaling)
   }
 }
 
@@ -1329,5 +1749,41 @@ button.px-4.py-2.bg-green-600:hover {
 
 .btn-warning-small:hover {
   background: var(--color-red-rgba-strong);
+}
+
+/* CF3: Trick Weapon Form Selector */
+.form-selector {
+  border-bottom: var(--border-width-thin) solid var(--color-border-primary);
+  padding-bottom: var(--spacing-sm);
+}
+
+.form-tab {
+  padding: var(--spacing-xs) var(--spacing-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  border-radius: var(--border-radius-sm);
+  background: var(--color-bg-secondary);
+  border: var(--border-width-thin) solid var(--color-border-primary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: var(--transition-hover);
+}
+
+.form-tab:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-secondary);
+}
+
+.form-tab-active {
+  background: var(--color-btn-primary-border);
+  border-color: var(--color-accent-gold);
+  color: var(--color-accent-gold-bright);
+  box-shadow: var(--shadow-gold-soft);
+}
+
+.form-tab-active:hover {
+  background: var(--color-btn-primary-border);
+  border-color: var(--color-accent-gold-bright);
 }
 </style>

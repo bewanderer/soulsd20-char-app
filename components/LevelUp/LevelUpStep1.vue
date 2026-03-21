@@ -1,6 +1,6 @@
 <template>
   <div v-if="pending" class="step-container">
-    <h3 class="step-title">Step 1: Increase Stats & HP</h3>
+    <h3 class="step-title">{{ pending.isEvenLevel ? 'Step 1: Increase Stats & HP' : 'Step 1: Increase Stats & Knowledge' }}</h3>
 
     <!-- HP Roll Display (Even Levels Only) -->
     <div v-if="pending.isEvenLevel" class="section hp-section">

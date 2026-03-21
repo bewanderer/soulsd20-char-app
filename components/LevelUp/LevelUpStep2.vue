@@ -90,7 +90,8 @@ const weaponTrees = [
   { id: 'PYROMANCY', name: 'Pyromancy', max: 25 },
   { id: 'HEX', name: 'Hexes', max: 25 },
   { id: 'SPIRIT_SUMMONING', name: 'Spirit Summoning', max: 25 },
-  { id: 'DUAL_WIELDING', name: 'Dual Wielding', max: 20 }
+  { id: 'DUAL_WIELDING', name: 'Dual Wielding', max: 20 },
+  { id: 'MUSICAL_INSTRUMENTS', name: 'Musical Instruments', max: 20 }
 ]
 
 const currentPhase = computed(() => {

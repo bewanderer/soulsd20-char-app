@@ -683,7 +683,7 @@ function handleModalConfirm(selection: { featId?: number, choseFatePoint?: boole
   if (modalType && modalType.startsWith('protege')) {
     const triggers = playerStore.handleProtegeSelection(modalType, selection, selection.treeId)
 
-    // If triggers were returned, we need to process them by opening their modals
+    // Process returned triggers by opening their modals
     if (triggers && (triggers.dwTriggers.length > 0 || triggers.musicalTriggers.length > 0)) {
       console.log(`[DESTINED] Protege selection triggered:`, triggers)
 

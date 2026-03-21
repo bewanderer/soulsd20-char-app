@@ -52,24 +52,23 @@
             <option value="all">All Types</option>
             <option value="FIST">Fists</option>
             <option value="DAGGER">Daggers</option>
-            <option value="STRAIGHT_THRUST">Straight/Thrust</option>
-            <option value="KATANA_CURVED">Katana/Curved</option>
+            <option value="STRAIGHT_THRUST">Straight/Thrust Swords</option>
+            <option value="KATANA_CURVED">Katana/Curved Swords</option>
+            <option value="GREAT_SWORD">Greatswords</option>
             <option value="ULTRA_GREAT_SWORD">Ultra Greatswords</option>
-            <option value="GREAT_AXE">Great Axes</option>
-            <option value="GREAT_HAMMER">Great Hammers</option>
+            <option value="AXE_GREAT_AXE">Axes/Great Axes</option>
+            <option value="HAMMER_GREAT_HAMMER">Hammers/Great Hammers</option>
             <option value="TWINBLADE">Twinblades</option>
             <option value="SPEAR">Spears</option>
             <option value="HALBERD">Halberds</option>
             <option value="REAPER">Reapers</option>
             <option value="WHIP">Whips</option>
-            <option value="CROSS_BOW">Crossbows</option>
+            <option value="BOW_CROSSBOW">Bows/Crossbows</option>
             <option value="GREAT_BOW_BALLISTA">Great Bows/Ballistas</option>
             <option value="GUN">Guns</option>
             <option value="SHIELD">Shields</option>
-            <option value="SORCERY">Sorcery Catalysts</option>
-            <option value="MIRACLE">Miracle Catalysts</option>
-            <option value="PYROMANCY">Pyromancy Catalysts</option>
-            <option value="HEX">Hex Catalysts</option>
+            <option value="CATALYSTS">All Catalysts</option>
+            <option value="INSTRUMENTS">All Instruments</option>
           </select>
 
           <!-- Type filter for Armor -->
@@ -86,7 +85,7 @@
         </div>
 
         <div class="overflow-auto flex-1">
-          <h1 class="sticky top-0 w-full flex justify-center py-4 bg-dislight section-header text-2xl font-semibold border-b">
+          <h1 class="sticky top-0 w-full flex justify-center py-4 bg-dislight section-header text-2xl font-semibold border-b z-10">
             Inventory
           </h1>
           
@@ -174,36 +173,13 @@
           <h1 class="sticky top-0 py-4 w-full flex items-center px-6 section-header bg-dislight text-2xl font-semibold border-b z-10">
             <span class="flex-1 text-center">All items</span>
             <div class="flex justify-center items-center" style="width: 140px;">
-              <UPopover :ui="{ wrapper: 'z-[20000]', container: 'z-[20000]' }">
-                <button @click="creatingItem = true" class="create-new-btn">
-                  Create New
-                </button>
-                <template #panel>
-                  <div class="create-item-popup">
-                    <div class="popup-row">
-                      <span class="popup-label">Name</span>
-                      <input v-model="createItemName" class="popup-input" />
-                    </div>
-
-                    <div class="popup-row">
-                      <span class="popup-label">Description</span>
-                      <input v-model="createItemDescription" class="popup-input" />
-                    </div>
-
-                    <div class="popup-row">
-                      <span class="popup-label">Type</span>
-                      <USelect
-                        v-model="createItemType"
-                        :options="itemTypeOptions"
-                        option-attribute="name"
-                        :ui="{ ring: 'ring-0 focus:ring-0' }"
-                      />
-                    </div>
-
-                    <button @click="createItem" class="popup-create-button">Create</button>
-                  </div>
-                </template>
-              </UPopover>
+              <button
+                v-if="characterCampaigns.length > 0"
+                @click="openCreateCustom"
+                class="create-new-btn"
+              >
+                Create Custom
+              </button>
             </div>
           </h1>
 
@@ -571,16 +547,98 @@
       </div>
     </div>
   </div>
+
+  <!-- Campaign Selector (when in multiple campaigns) -->
+  <Teleport to="body">
+    <div v-if="showCampaignSelector" class="campaign-select-overlay" @click.self="showCampaignSelector = false">
+      <div class="campaign-select-modal">
+        <h2 class="campaign-select-title">Select Campaign</h2>
+        <p class="campaign-select-text">Which campaign should this custom item belong to?</p>
+        <div class="campaign-select-list">
+          <button
+            v-for="camp in characterCampaigns"
+            :key="camp.id"
+            @click="selectCampaignAndCreate(camp.id)"
+            class="campaign-select-btn"
+          >{{ camp.name }}</button>
+        </div>
+        <div class="campaign-select-actions">
+          <button @click="showCampaignSelector = false" class="campaign-select-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+
+  <!-- Create Custom Item Modal -->
+  <Teleport to="body">
+    <CreateItemModal
+      v-if="showCreateItemModal && selectedCampaignId"
+      :campaign-id="selectedCampaignId"
+      @close="showCreateItemModal = false"
+      @created="handleCustomItemCreated"
+    />
+  </Teleport>
 </template>
 
 <script setup lang="ts">
+import { ref, onMounted } from 'vue'
 import * as invutils from '@/mixins/invutils'
 import * as imageUtils from '@/mixins/imageUtils'
 import { usePlayerStore } from '@/store/player'
 import { useCompendiumStore } from '~~/store/compendium'
+import { useApi } from '~/composables/useApi'
+import CreateItemModal from '~/components/Campaigns/CreateItemModal.vue'
 
 const store = usePlayerStore()
 const compendiumStore = useCompendiumStore()
+const api = useApi()
+
+// Custom item creation
+const showCreateItemModal = ref(false)
+const showCampaignSelector = ref(false)
+const characterCampaigns = ref<Array<{ id: string; name: string }>>([])
+const selectedCampaignId = ref<string | null>(null)
+
+// Fetch character's campaign assignments on mount
+onMounted(async () => {
+  if (store.UUID) {
+    const response = await api.get<any>(`/api/characters/${store.UUID}/`)
+    if (response.ok && response.data?.campaigns?.length > 0) {
+      characterCampaigns.value = response.data.campaigns
+      selectedCampaignId.value = response.data.campaigns[0].id
+    }
+  }
+})
+
+function openCreateCustom() {
+  if (characterCampaigns.value.length > 1) {
+    // Show campaign selector first
+    showCampaignSelector.value = true
+  } else if (characterCampaigns.value.length === 1) {
+    // Single campaign, open directly
+    selectedCampaignId.value = characterCampaigns.value[0].id
+    showCreateItemModal.value = true
+  }
+}
+
+function selectCampaignAndCreate(campaignId: string) {
+  selectedCampaignId.value = campaignId
+  showCampaignSelector.value = false
+  showCreateItemModal.value = true
+}
+
+function handleCustomItemCreated(item: any) {
+  showCreateItemModal.value = false
+  if (item) {
+    compendiumStore.createItem({
+      id: item.id,
+      name: item.name,
+      description: item.description || '',
+      category: item.type || 'misc',
+      Quantity: 0,
+    })
+  }
+}
 
 const itemTypeOptions = [
   { name: 'Tool', value: 'tools' },
@@ -597,10 +655,34 @@ const createItemName = shallowRef('')
 const createItemDescription = shallowRef('')
 const createItemType = ref(itemTypeOptions[0].value)
 
-const searchQuery = ref('')
-const sortOption = ref('default')
-const weaponTypeFilter = ref('all')
-const armorTypeFilter = ref('all')
+// Persist filter state in localStorage
+const INVENTORY_FILTER_KEY = 'sd20_inventory_filters'
+
+function loadFilterState() {
+  if (typeof window === 'undefined') return { search: '', sort: 'default', weaponType: 'all', armorType: 'all' }
+  try {
+    const saved = localStorage.getItem(INVENTORY_FILTER_KEY)
+    return saved ? JSON.parse(saved) : { search: '', sort: 'default', weaponType: 'all', armorType: 'all' }
+  } catch {
+    return { search: '', sort: 'default', weaponType: 'all', armorType: 'all' }
+  }
+}
+
+function saveFilterState() {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(INVENTORY_FILTER_KEY, JSON.stringify({
+    search: searchQuery.value,
+    sort: sortOption.value,
+    weaponType: weaponTypeFilter.value,
+    armorType: armorTypeFilter.value
+  }))
+}
+
+const savedFilters = loadFilterState()
+const searchQuery = ref(savedFilters.search)
+const sortOption = ref(savedFilters.sort)
+const weaponTypeFilter = ref(savedFilters.weaponType)
+const armorTypeFilter = ref(savedFilters.armorType)
 const selectedItem = ref<any>(null)
 
 const itemCategoryDescription = computed(()=>{
@@ -658,9 +740,20 @@ const allItemsUnfiltered = computed(()=> {
     )
   }
 
-  // Apply weapon type filter
+  // Apply weapon type filter (with grouped type support)
   if (activeTab.value === 'weapon' && weaponTypeFilter.value !== 'all') {
-    allCombined = allCombined.filter(item => item.weapon_type === weaponTypeFilter.value)
+    const weaponTypeGroups: Record<string, string[]> = {
+      'STRAIGHT_THRUST': ['STRAIGHT', 'THRUST'],
+      'KATANA_CURVED': ['KATANA', 'CURVED'],
+      'AXE_GREAT_AXE': ['AXE', 'GREAT_AXE'],
+      'HAMMER_GREAT_HAMMER': ['HAMMER', 'GREAT_HAMMER'],
+      'BOW_CROSSBOW': ['BOW', 'CROSSBOW'],
+      'GREAT_BOW_BALLISTA': ['GREAT_BOW', 'BALLISTA'],
+      'CATALYSTS': ['STAFF', 'CHIME', 'TALISMAN', 'PYRO', 'CRUCIBLE'],
+      'INSTRUMENTS': ['WIND_INSTRUMENT', 'STRING_INSTRUMENT', 'PERCUSSION_INSTRUMENT', 'TONGUE_INSTRUMENT', 'HORN_INSTRUMENT']
+    }
+    const filterTypes = weaponTypeGroups[weaponTypeFilter.value] || [weaponTypeFilter.value]
+    allCombined = allCombined.filter(item => filterTypes.includes(item.weapon_type))
   }
 
   // Apply armor type filter
@@ -697,10 +790,11 @@ watch(activeTab, () => {
   sortOption.value = 'default'
 })
 
-// Reset page when search/filter changes
+// Reset page and save filter state when search/filter changes
 watch([searchQuery, sortOption, weaponTypeFilter, armorTypeFilter], () => {
   currentPage.value = 1
   inventoryCurrentPage.value = 1
+  saveFilterState()
 })
 
 function nextPage() {
@@ -784,15 +878,53 @@ const typeTabs = [
   { Name: 'Artifacts', Identifier: 'artifact', },
 ]
 
-function createItem() {
-  compendiumStore.createItem({
-    id: Date.now(), // Generate temporary ID for custom items
-    name: createItemName.value,
-    description: createItemDescription.value,
-    category: createItemType.value,
-    Quantity: 1,
-  })
+async function createItem() {
+  // Check if character is in any campaign (required for custom items)
+  const campaignMemberships = (store as any).campaignMemberships || []
 
+  if (campaignMemberships.length > 0) {
+    // Create via campaign items API
+    const campaignId = campaignMemberships[0]?.id
+    if (campaignId) {
+      const typeMap: Record<string, string> = {
+        'weapon': 'weapon', 'armor': 'armor', 'artifact': 'artifact',
+        'misc': 'item', 'tools': 'item', 'ring': 'ring'
+      }
+      const apiType = typeMap[createItemType.value] || 'item'
+
+      const response = await api.post(`/api/campaigns/${campaignId}/items/`, {
+        type: apiType,
+        name: createItemName.value,
+        description: createItemDescription.value,
+        item_type: createItemType.value === 'tools' ? 'TOOL' : 'MISC',
+      })
+
+      if (response.ok && response.data) {
+        // Add to local compendium for immediate display
+        compendiumStore.createItem({
+          id: (response.data as any).id,
+          name: createItemName.value,
+          description: createItemDescription.value,
+          category: createItemType.value,
+          Quantity: 1,
+          is_official: false,
+          campaign_id: campaignId,
+        })
+      }
+    }
+  } else {
+    // Local-only creation (no campaign)
+    compendiumStore.createItem({
+      id: Date.now(),
+      name: createItemName.value,
+      description: createItemDescription.value,
+      category: createItemType.value,
+      Quantity: 1,
+    })
+  }
+
+  createItemName.value = ''
+  createItemDescription.value = ''
   creatingItem.value = false
 }
 
@@ -1110,7 +1242,7 @@ h1.sticky.top-0 {
   left: 0;
   width: 5rem; /* Increased width for better 3-digit number display */
   height: 1.5rem;
-  z-index: 10;
+  z-index: 5; /* Below sticky header (z-10) but above item images */
   background: transparent;
   color: #ffffff;
   border: none;
@@ -1135,7 +1267,7 @@ h1.sticky.top-0 {
   right: 0;
   width: 1.5rem;
   height: 1.5rem;
-  z-index: 10;
+  z-index: 5; /* Below sticky header (z-10) but above item images */
   background: transparent;
   border: none;
   color: var(--color-btn-danger-text);
@@ -1256,6 +1388,12 @@ h1.sticky.top-0 {
   border-color: var(--color-gold-primary);
   color: #ffffff;
   box-shadow: var(--shadow-gold-medium);
+}
+
+.create-disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 /* ===========================================
@@ -1560,5 +1698,82 @@ h1.sticky.top-0 {
 .inventory-panel-left,
 .inventory-panel-right {
   height: 100%;
+}
+
+/* Campaign Selector Modal */
+.campaign-select-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.campaign-select-modal {
+  background: rgba(25, 25, 30, 0.98);
+  border: 0.0625rem solid rgba(255, 215, 0, 0.2);
+  border-radius: 0.75rem;
+  padding: clamp(1.5rem, 2.5vw, 1.875rem);
+  max-width: clamp(20rem, 30vw, 25rem);
+  width: 90%;
+}
+
+.campaign-select-title {
+  color: var(--color-gold-primary);
+  font-size: clamp(1.1rem, 1.4vw, 1.3rem);
+  margin: 0 0 0.5em 0;
+}
+
+.campaign-select-text {
+  color: #ccc;
+  font-size: clamp(0.85rem, 1vw, 0.95rem);
+  margin-bottom: 1em;
+}
+
+.campaign-select-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  margin-bottom: 1em;
+}
+
+.campaign-select-btn {
+  width: 100%;
+  padding: 0.75em 1em;
+  background: rgba(255, 215, 0, 0.08);
+  border: 0.0625rem solid rgba(255, 215, 0, 0.3);
+  border-radius: 0.375rem;
+  color: #ffd700;
+  font-size: clamp(0.9rem, 1vw, 1rem);
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.campaign-select-btn:hover {
+  background: rgba(255, 215, 0, 0.15);
+  border-color: rgba(255, 215, 0, 0.5);
+}
+
+.campaign-select-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.5em;
+  border-top: 0.0625rem solid rgba(255, 255, 255, 0.1);
+}
+
+.campaign-select-cancel {
+  padding: 0.5em 1.25em;
+  background: transparent;
+  border: 0.0625rem solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.375rem;
+  color: #ccc;
+  cursor: pointer;
+}
+
+.campaign-select-cancel:hover {
+  border-color: rgba(255, 255, 255, 0.4);
 }
 </style>

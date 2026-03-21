@@ -126,6 +126,21 @@
       </div>
     </div>
   </div>
+
+  <!-- Import Mode Modal -->
+  <Teleport to="body">
+    <div v-if="importPending" class="import-modal-overlay" @click.self="importPending = null">
+      <div class="import-modal-content">
+        <h2 class="import-modal-title">Import Notes</h2>
+        <p class="import-modal-text">How would you like to import this data?</p>
+        <div class="import-modal-actions">
+          <button @click="executeNotesImport('replace')" class="import-btn import-btn-replace">Replace all existing entries</button>
+          <button @click="executeNotesImport('merge')" class="import-btn import-btn-merge">Merge (keep both)</button>
+          <button @click="importPending = null" class="import-btn import-btn-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -250,6 +265,9 @@ function handleImportNotes() {
   fileInput.value?.click()
 }
 
+// Import modal state
+const importPending = ref<string | null>(null)
+
 function handleFileSelect(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
@@ -257,24 +275,24 @@ function handleFileSelect(event: Event) {
 
   const reader = new FileReader()
   reader.onload = (e) => {
-    try {
-      const content = e.target?.result as string
-      const success = importNotes(content, 'merge')
-
-      if (success) {
-        alert('Notes imported successfully!')
-      } else {
-        alert('Failed to import notes. Invalid file format.')
-      }
-    } catch (error) {
-      console.error('Import error:', error)
-      alert('Failed to import notes. Invalid file.')
-    }
+    importPending.value = e.target?.result as string
   }
   reader.readAsText(file)
 
-  // Reset input
   input.value = ''
+}
+
+function executeNotesImport(mode: 'replace' | 'merge') {
+  if (!importPending.value) return
+  try {
+    const success = importNotes(importPending.value, mode)
+    importPending.value = null
+    alert(success ? 'Notes imported successfully!' : 'Failed to import notes. Invalid file format.')
+  } catch (error) {
+    console.error('Import error:', error)
+    importPending.value = null
+    alert('Failed to import notes. Invalid file.')
+  }
 }
 </script>
 
@@ -508,5 +526,80 @@ function handleFileSelect(event: Event) {
 
 .empty-message {
   color: var(--color-text-tertiary);
+}
+
+/* Import Modal */
+.import-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.import-modal-content {
+  background: rgba(25, 25, 30, 0.98);
+  border: 0.0625rem solid rgba(255, 215, 0, 0.2);
+  border-radius: 0.75rem;
+  padding: clamp(1.5rem, 2.5vw, 1.875rem);
+  max-width: clamp(22rem, 35vw, 28rem);
+  width: 90%;
+}
+
+.import-modal-title {
+  color: var(--color-gold-primary);
+  font-size: clamp(1.1rem, 1.4vw, 1.3rem);
+  margin: 0 0 0.75em 0;
+}
+
+.import-modal-text {
+  color: #ccc;
+  margin-bottom: 1.25em;
+}
+
+.import-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625em;
+}
+
+.import-btn {
+  width: 100%;
+  padding: 0.75em 1.5em;
+  border-radius: 0.375rem;
+  font-size: clamp(0.85rem, 1vw, 0.95rem);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.import-btn-replace {
+  background: var(--color-btn-danger-bg);
+  border: 0.0625rem solid var(--color-btn-danger-border);
+  color: var(--color-btn-danger-text);
+}
+
+.import-btn-replace:hover {
+  background: var(--color-btn-danger-bg-hover);
+}
+
+.import-btn-merge {
+  background: rgba(60, 179, 113, 0.12);
+  border: 0.0625rem solid rgba(60, 179, 113, 0.4);
+  color: var(--color-green-primary);
+}
+
+.import-btn-merge:hover {
+  background: rgba(60, 179, 113, 0.2);
+  border-color: var(--color-green-primary);
+}
+
+.import-btn-cancel {
+  background: transparent;
+  border: 0.0625rem solid rgba(255, 255, 255, 0.2);
+  color: #ccc;
 }
 </style>

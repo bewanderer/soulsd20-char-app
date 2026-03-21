@@ -13,7 +13,10 @@ type RootState = {
   Weapons: any[],
   Backgrounds: any[],
   Lineages: any[],
-  Bloodlines: any[]
+  Bloodlines: any[],
+  isLoading: boolean,
+  isLoaded: boolean,
+  loadError: string | null,
 }
 
 export const useCompendiumStore = defineStore({
@@ -31,86 +34,79 @@ export const useCompendiumStore = defineStore({
     Weapons: [],
     Backgrounds: [],
     Lineages: [],
-    Bloodlines: []
+    Bloodlines: [],
+    isLoading: false,
+    isLoaded: false,
+    loadError: null,
   } as RootState),
 
   actions: {
     async getCompendium() {
+      // Skip if already loaded
+      if (this.isLoaded) return
+
+      this.isLoading = true
+      this.loadError = null
       const config = useRuntimeConfig()
 
+      // Get auth token for campaign-filtered results
+      const token = typeof window !== 'undefined'
+        ? localStorage.getItem('sd20_auth_token')
+        : null
+      const headers: Record<string, string> = {}
+      if (token) {
+        headers['Authorization'] = `Token ${token}`
+      }
+
       try {
-        const weaponFeatsData: any[] = await $fetch(config.public.API_BASE_URL + '/weaponProfFeat/', {
-          method: 'GET',
-        })
-        this.WeaponFeats = weaponFeatsData
+        const [
+          weaponFeats, destinyFeats, weaponSkills, spells, spirits,
+          items, rings, artifacts, armors, weapons,
+          backgrounds, lineages, bloodlines
+        ] = await Promise.all([
+          $fetch<any[]>(config.public.API_BASE_URL + '/weaponProfFeat/', { headers }),
+          $fetch<any[]>(config.public.API_BASE_URL + '/destinyFeat/', { headers }),
+          $fetch<any[]>(config.public.API_BASE_URL + '/weaponSkill/', { headers }),
+          $fetch<any[]>(config.public.API_BASE_URL + '/spell/', { headers }),
+          $fetch<any[]>(config.public.API_BASE_URL + '/spirit/', { headers }),
+          $fetch<any[]>(config.public.API_BASE_URL + '/item/', { headers }),
+          $fetch<any[]>(config.public.API_BASE_URL + '/ring/', { headers }),
+          $fetch<any[]>(config.public.API_BASE_URL + '/artifact/', { headers }),
+          $fetch<any[]>(config.public.API_BASE_URL + '/armor/', { headers }),
+          $fetch<any[]>(config.public.API_BASE_URL + '/weapon/', { headers }),
+          $fetch<any[]>(config.public.API_BASE_URL + '/backgrounds/', { headers }),
+          $fetch<any[]>(config.public.API_BASE_URL + '/lineages/', { headers }),
+          $fetch<any[]>(config.public.API_BASE_URL + '/bloodlines/', { headers }),
+        ])
 
-        const destinyFeatsData: any[] = await $fetch(config.public.API_BASE_URL + '/destinyFeat/', {
-          method: 'GET',
-        })
-        this.DestinyFeats = destinyFeatsData
+        this.WeaponFeats = weaponFeats
+        this.DestinyFeats = destinyFeats
+        this.WeaponSkills = weaponSkills
+        this.Spells = spells
+        this.Spirits = spirits
+        this.Items = items
+        this.Rings = rings
+        this.Artifacts = artifacts
+        this.Armors = armors
+        this.Weapons = weapons
+        this.Backgrounds = backgrounds
+        this.Lineages = lineages
+        this.Bloodlines = bloodlines
 
-        const weaponSkillsData: any[] = await $fetch(config.public.API_BASE_URL + '/weaponSkill/', {
-          method: 'GET',
-        })
-        this.WeaponSkills = weaponSkillsData
+        this.isLoaded = true
+        this.isLoading = false
 
-        const spellsData: any[] = await $fetch(config.public.API_BASE_URL + '/spell/', {
-          method: 'GET',
-        })
-        this.Spells = spellsData
-
-        const spiritsData: any[] = await $fetch(config.public.API_BASE_URL + '/spirit/', {
-          method: 'GET',
-        })
-        this.Spirits = spiritsData
-
-        const itemsData: any[] = await $fetch(config.public.API_BASE_URL + '/item/', {
-          method: 'GET',
-        })
-        this.Items = itemsData
-
-        const ringsData: any[] = await $fetch(config.public.API_BASE_URL + '/ring/', {
-          method: 'GET',
-        })
-        this.Rings = ringsData
-
-        const artifactsData: any[] = await $fetch(config.public.API_BASE_URL + '/artifact/', {
-          method: 'GET',
-        })
-        this.Artifacts = artifactsData
-
-        const armorsData: any[] = await $fetch(config.public.API_BASE_URL + '/armor/', {
-          method: 'GET',
-        })
-        this.Armors = armorsData
-
-        const weaponsData: any[] = await $fetch(config.public.API_BASE_URL + '/weapon/', {
-          method: 'GET',
-        })
-        this.Weapons = weaponsData
-
-        const backgroundsData: any[] = await $fetch(config.public.API_BASE_URL + '/backgrounds/', {
-          method: 'GET',
-        })
-        this.Backgrounds = backgroundsData
-
-        const lineagesData: any[] = await $fetch(config.public.API_BASE_URL + '/lineages/', {
-          method: 'GET',
-        })
-        this.Lineages = lineagesData
-
-        const bloodlinesData: any[] = await $fetch(config.public.API_BASE_URL + '/bloodlines/', {
-          method: 'GET',
-        })
-        this.Bloodlines = bloodlinesData
-
-        console.log('Compendium loaded successfully:', {
+        console.log('[SD20 Compendium] Loaded:', {
           backgrounds: this.Backgrounds.length,
           lineages: this.Lineages.length,
-          bloodlines: this.Bloodlines.length
+          bloodlines: this.Bloodlines.length,
+          weapons: this.Weapons.length,
+          skills: this.WeaponSkills.length,
         })
       } catch (error) {
-        console.error('Failed to fetch compendium data:', error)
+        console.error('[SD20 Compendium] Failed to fetch:', error)
+        this.isLoading = false
+        this.loadError = 'Failed to load game data'
         throw error
       }
     },
@@ -119,25 +115,20 @@ export const useCompendiumStore = defineStore({
       this.Items.push(item)
     },
 
-    // Get background by ID
     getBackgroundById(id: number) {
       return this.Backgrounds.find(b => b.id === id)
     },
 
-    // Get lineage by ID (includes nested bloodlines)
     getLineageById(id: number) {
       return this.Lineages.find(l => l.id === id)
     },
 
-    // Get bloodline by ID
     getBloodlineById(id: number) {
       return this.Bloodlines.find(b => b.id === id)
     },
 
-    // Get bloodlines for a specific lineage
     getBloodlinesForLineage(lineageId: number) {
-      const lineage = this.getLineageById(lineageId)
-      return lineage?.bloodlines || []
-    }
+      return this.Bloodlines.filter(b => b.lineage === lineageId)
+    },
   }
 })

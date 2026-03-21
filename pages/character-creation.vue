@@ -63,10 +63,10 @@
         <button
           v-else
           @click="finalizeCharacter"
-          :disabled="!canCreateCharacter()"
+          :disabled="!canCreateCharacter() || isCreating"
           class="nav-btn finalize-btn"
         >
-          Create Character
+          {{ isCreating ? 'Creating...' : 'Create Character' }}
         </button>
       </div>
     </div>
@@ -74,11 +74,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
+
+definePageMeta({
+  layout: 'app',
+  middleware: 'auth'
+})
 import { useRouter } from 'vue-router'
 import { useCharacterCreationWizard } from '~/composables/useCharacterCreationWizard'
 import { useCompendiumStore } from '~/store/compendium'
-import { addCharacter, generateUUID } from '~/mixins/characterStorage'
+import { usePlayerStore } from '~/store/player'
+import { addCharacterWithSync, generateUUID, setActiveCharacter } from '~/mixins/characterStorage'
 
 // Import step components
 import NameStep from '~/components/CharacterCreation/NameStep.vue'
@@ -90,32 +96,26 @@ import ReviewStep from '~/components/CharacterCreation/ReviewStep.vue'
 
 const router = useRouter()
 const compendiumStore = useCompendiumStore()
+const playerStore = usePlayerStore()
+const isCreating = ref(false)
 const { currentStep, totalSteps, wizardData, isChaoticTarnished, nextStep, previousStep, goToStep, canProceed } = useCharacterCreationWizard()
 
 const isLoadingData = ref(true)
 
-// Check if compendium data is loaded, wait if not
-onMounted(async () => {
-  // Check if backgrounds are loaded (proxy for all data)
-  if (compendiumStore.Backgrounds.length === 0) {
-    // Data not loaded yet, wait for it
-    const checkInterval = setInterval(() => {
-      if (compendiumStore.Backgrounds.length > 0) {
-        isLoadingData.value = false
-        clearInterval(checkInterval)
-      }
-    }, 100)
-
-    // Timeout after 10 seconds
-    setTimeout(() => {
-      if (isLoadingData.value) {
-        alert('Failed to load character creation data. Please refresh the page.')
-        clearInterval(checkInterval)
-      }
-    }, 10000)
-  } else {
-    // Data already loaded
+// Load compendium data if not already loaded
+onMounted(() => {
+  // Compendium is loaded by plugins/compendium.client.ts on startup
+  // LoadingOverlay blocks UI until it finishes
+  if (compendiumStore.Backgrounds.length > 0) {
     isLoadingData.value = false
+  } else {
+    // Watch for compendium to finish loading
+    const unwatch = watch(() => compendiumStore.isLoaded, (loaded) => {
+      if (loaded) {
+        isLoadingData.value = false
+        unwatch()
+      }
+    }, { immediate: true })
   }
 })
 
@@ -145,7 +145,7 @@ function getStepLabel(step: number): string {
 
 function cancelCreation() {
   if (confirm('Are you sure you want to cancel character creation? All progress will be lost.')) {
-    router.push('/')
+    router.push('/campaigns')
   }
 }
 
@@ -160,6 +160,10 @@ function canCreateCharacter(): boolean {
 }
 
 function finalizeCharacter() {
+  // Prevent double-click
+  if (isCreating.value) return
+  isCreating.value = true
+
   // Get background data to initialize stats
   const background = compendiumStore.getBackgroundById(wizardData.value.background_id!)
 
@@ -202,17 +206,20 @@ function finalizeCharacter() {
   }
 
   // Create character object with ALL fields (prevent old character data carryover)
+  // Character starts at Level 0 - they will level up to 1 via the Level Up modal
   const newCharacter = {
     uuid: generateUUID(),
     name: wizardData.value.name,
     gender: wizardData.value.gender,
     physical_description: wizardData.value.physical_description || '',
-    level: 1,
+    level: 0,
     background_id: wizardData.value.background_id!,
     lineage_id: wizardData.value.lineage_id!,
     bloodline_id: wizardData.value.bloodline_id,
     is_finalized: true,
     stats: initialStats,
+    creation_stats: { ...initialStats }, // Store original stats for reset (especially Chaotic Tarnished)
+    creation_starting_hp: startingHp, // Store original starting HP for reset (especially Chaotic Tarnished)
     skills: {
       Athletics: 0,
       Acrobatics: 0,
@@ -363,12 +370,26 @@ function finalizeCharacter() {
     last_played: new Date().toISOString()
   }
 
-  // Save character
-  const success = addCharacter(newCharacter)
+  console.log(`[SD20 Nav] finalizeCharacter() name="${newCharacter.name}" uuid="${newCharacter.uuid}"`)
+
+  // Save character at Level 0 (with API sync)
+  const success = addCharacterWithSync(newCharacter)
 
   if (success) {
-    router.push('/')
+    console.log(`[SD20 Nav] Character created and saved successfully: "${newCharacter.name}" (uuid=${newCharacter.uuid})`)
+    // Set as active character and load into store
+    setActiveCharacter(newCharacter.uuid)
+    playerStore.loadActiveCharacter()
+    playerStore.setupAutoSave()
+
+    // Initialize the mandatory Level 1 level-up
+    // This bypasses souls requirement and sets up the level-up flow
+    playerStore.initializeLevel1LevelUp()
+
+    // Navigate to character sheet where the mandatory Level Up modal will appear
+    router.push(`/character/${newCharacter.uuid}`)
   } else {
+    console.error('[SD20 Nav] Failed to save character')
     console.error('Failed to save character')
     alert('Failed to create character. Maximum 10 characters allowed.')
   }

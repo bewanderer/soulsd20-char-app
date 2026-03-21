@@ -29,6 +29,15 @@ export default defineNuxtConfig({
     },
   },
   modules: ['@pinia/nuxt', '@nuxtjs/google-fonts', '@nuxt/ui', "nuxt-security"],
+  security: {
+    headers: {
+      contentSecurityPolicy: {
+        'img-src': ["'self'", 'data:', 'blob:', 'http://127.0.0.1:8000'],
+      },
+      crossOriginEmbedderPolicy: 'unsafe-none',
+      crossOriginResourcePolicy: 'cross-origin',
+    }
+  },
   googleFonts: {
     families: {
       'Cardo': [400, 700],

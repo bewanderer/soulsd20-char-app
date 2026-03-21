@@ -7,7 +7,7 @@
       </h1>
 
       <div v-if="!editingBonus" class="points-display">
-        <span class="point-type">Total Points: <span class="points-value">{{ spentPoints }}/{{ totalPoints }}</span></span>
+        <span class="point-type">Total Points: <span class="points-value">{{ spentPoints }}/{{ primaryPointsTotal }}</span></span>
         <span class="point-breakdown">(Level: {{ baseFromLevel }} + Bonus: {{ customBonus }})</span>
         <button @click="startEditBonus" class="btn-neutral-small">
           Edit Bonus
@@ -346,7 +346,11 @@ watch(() => playerStore.WeaponProficiencies, (newProfs) => {
 const totalPoints = computed(() => playerStore.WeaponProficiencyPoints?.total || 0)
 const baseFromLevel = computed(() => playerStore.WeaponProficiencyPoints?.baseFromLevel || 0)
 const customBonus = computed(() => playerStore.WeaponProficiencyPoints?.customBonus || 0)
-const spentPoints = computed(() => playerStore.getTotalSpentPoints())
+// For display: X/Y where Y = character level + bonus
+const primaryPointsTotal = computed(() => playerStore.Level + customBonus.value)
+// spentPoints shows only PRIMARY points spent (capped at character level)
+// Secondary/Tertiary points don't count toward this display
+const spentPoints = computed(() => Math.min(playerStore.getTotalSpentPoints(), primaryPointsTotal.value))
 const availablePoints = computed(() => playerStore.getAvailablePoints())
 const canIncrementPoints = computed(() => availablePoints.value > 0)
 
@@ -559,7 +563,7 @@ function updateTreePoints(treeId: string) {
 
 // Modal state
 const showCrossTreeModal = ref(false)
-const currentModalType = ref<'dual_wielding_skilled' | 'dual_wielding_skilled_plus' | 'dual_wielding_master' | 'dual_wielding_master_plus' | 'musical_skilled_artist' | 'musical_master_artist' | 'protege_1_lv3' | 'protege_1_lv5' | 'protege_2' | 'protege_3' | null>(null)
+const currentModalType = ref<'dual_wielding_skilled' | 'dual_wielding_skilled_plus' | 'dual_wielding_master' | 'dual_wielding_master_plus' | 'musical_skilled_artist' | 'musical_master_artist' | 'halberd_two_in_one' | 'halberd_two_in_one_plus' | 'halberd_master_of_all_trades' | 'protege_1_lv3' | 'protege_1_lv5' | 'protege_2' | 'protege_3' | null>(null)
 const currentModalAvailableTrees = ref<string[]>([])
 const pendingTriggers = ref<string[]>([]) // DEPRECATED - kept for backward compatibility
 const immediateTriggers = ref<string[]>([]) // DW + Musical triggers (processed first)
@@ -652,6 +656,15 @@ function checkPendingModalOnLoad() {
       } else if (state.modalType === 'musical_master_artist') {
         playerStore.MusicalInstrumentsFeatFlags.master_artist_used = false
       }
+    } else if (state.modalType.startsWith('halberd')) {
+      // Reset Halberd flags based on type
+      if (state.modalType === 'halberd_two_in_one') {
+        playerStore.HalberdFeatFlags.two_in_one_used = false
+      } else if (state.modalType === 'halberd_two_in_one_plus') {
+        playerStore.HalberdFeatFlags.two_in_one_plus_used = false
+      } else if (state.modalType === 'halberd_master_of_all_trades') {
+        playerStore.HalberdFeatFlags.master_of_all_trades_used = false
+      }
     }
 
     // Clear the pending state
@@ -683,7 +696,7 @@ async function obtain(feat: any) {
     tree: feat.weapon_tree
   })
 
-  // Only check for triggers if we're not already processing triggers
+  // Skip trigger checking if already processing triggers
   // This prevents nested trigger checking when obtaining cross-tree feats
   if (isProcessingTriggers.value) {
     return
@@ -698,11 +711,15 @@ async function obtain(feat: any) {
   const musicalTriggers = playerStore.checkMusicalInstrumentTriggers(feat.id)
   console.log(`[TRIGGER CHECK] Musical Triggers:`, musicalTriggers)
 
-  // Combine immediate triggers (DW + Musical)
-  immediateTriggers.value = [...dwTriggers, ...musicalTriggers]
-  console.log(`[TRIGGER CHECK] Immediate Triggers (DW + Musical):`, immediateTriggers.value)
+  // Check for Halberd triggers
+  const halberdTriggers = playerStore.checkHalberdTriggers(feat.id)
+  console.log(`[TRIGGER CHECK] Halberd Triggers:`, halberdTriggers)
 
-  // NOTE: We do NOT check for Protege triggers here
+  // Combine immediate triggers (DW + Musical + Halberd)
+  immediateTriggers.value = [...dwTriggers, ...musicalTriggers, ...halberdTriggers]
+  console.log(`[TRIGGER CHECK] Immediate Triggers (DW + Musical + Halberd):`, immediateTriggers.value)
+
+  // NOTE: Protege triggers are NOT checked here
   // Protege triggers are checked AFTER all immediate triggers complete
   // This ensures cross-tree feats are obtained before evaluating Protege milestones
 
@@ -898,13 +915,15 @@ function handleModalConfirm(selection: { featId?: number, featIds?: number[], ch
   console.log(`[HANDLE CONFIRM] Starting confirmation. Selection:`, selection)
   const modalType = currentModalType.value
 
-  // Determine if this is Dual Wielding, Musical Instruments, or Protege and apply selection
-  let result: { dwTriggers: string[], musicalTriggers: string[], obtainedFeatIds: number[] } | null = null
+  // Determine if this is Dual Wielding, Musical Instruments, Halberd, or Protege and apply selection
+  let result: { dwTriggers: string[], musicalTriggers: string[], halberdTriggers?: string[], obtainedFeatIds: number[] } | null = null
 
   if (modalType && modalType.startsWith('dual_wielding')) {
     result = playerStore.handleDualWieldingSelection(modalType, selection)
   } else if (modalType && modalType.startsWith('musical')) {
     result = playerStore.handleMusicalInstrumentSelection(modalType, selection)
+  } else if (modalType && modalType.startsWith('halberd')) {
+    result = playerStore.handleHalberdSelection(modalType, selection)
   } else if (modalType && modalType.startsWith('protege')) {
     result = playerStore.handleProtegeSelection(modalType, selection, selection.treeId)
   }
@@ -932,11 +951,12 @@ function handleModalConfirm(selection: { featId?: number, featIds?: number[], ch
     }
 
     // Process triggers if any
-    if (result.dwTriggers.length > 0 || result.musicalTriggers.length > 0) {
+    const halberdTriggers = result.halberdTriggers || []
+    if (result.dwTriggers.length > 0 || result.musicalTriggers.length > 0 || halberdTriggers.length > 0) {
       console.log(`[HANDLE CONFIRM] Selection triggered new modals:`, result)
 
-      // Add DW triggers first, then Musical triggers
-      const newTriggers = [...result.dwTriggers, ...result.musicalTriggers]
+      // Add DW triggers first, then Musical triggers, then Halberd triggers
+      const newTriggers = [...result.dwTriggers, ...result.musicalTriggers, ...halberdTriggers]
       immediateTriggers.value.push(...newTriggers)
 
       console.log(`[HANDLE CONFIRM] Added ${newTriggers.length} new immediate triggers. Total immediate triggers:`, immediateTriggers.value.length)
@@ -970,7 +990,7 @@ function handleModalConfirm(selection: { featId?: number, featIds?: number[], ch
       processProtegeTriggers()
     }, 300)
   }
-  // If no immediate/deferred triggers but we have feats in chain, check for NEW deferred triggers
+  // No immediate/deferred triggers but feats exist in chain - check for NEW deferred triggers
   else if (obtainedFeatsInChain.value.length > 0) {
     console.log(`[HANDLE CONFIRM] No more immediate triggers, but chain has ${obtainedFeatsInChain.value.length} feats. Checking deferred Protege triggers...`)
     setTimeout(() => {
@@ -1021,7 +1041,7 @@ function handleModalPostpone() {
       processProtegeTriggers()
     }, 300)
   }
-  // If no immediate triggers but we were processing immediate phase, check deferred triggers
+  // No immediate triggers remaining during processing phase - check deferred triggers
   else if (isProcessingTriggers.value) {
     console.log(`[HANDLE POSTPONE] No more immediate triggers, checking deferred Protege triggers...`)
     setTimeout(() => {
@@ -1111,6 +1131,15 @@ function handleModalClose() {
           playerStore.MusicalInstrumentsFeatFlags.skilled_artist_used = false
         } else if (modalType === 'musical_master_artist') {
           playerStore.MusicalInstrumentsFeatFlags.master_artist_used = false
+        }
+      } else if (modalType.startsWith('halberd')) {
+        // Reset Halberd flags based on type
+        if (modalType === 'halberd_two_in_one') {
+          playerStore.HalberdFeatFlags.two_in_one_used = false
+        } else if (modalType === 'halberd_two_in_one_plus') {
+          playerStore.HalberdFeatFlags.two_in_one_plus_used = false
+        } else if (modalType === 'halberd_master_of_all_trades') {
+          playerStore.HalberdFeatFlags.master_of_all_trades_used = false
         }
       }
 

@@ -26,6 +26,20 @@ export interface StoredCharacter {
     faith: number
   }
 
+  // Original stats from character creation (for reset, especially Chaotic Tarnished)
+  creation_stats?: {
+    vitality: number
+    endurance: number
+    strength: number
+    dexterity: number
+    attunement: number
+    intelligence: number
+    faith: number
+  }
+
+  // Original starting HP from character creation (for reset, especially Chaotic Tarnished)
+  creation_starting_hp?: number
+
   // Skills
   skills: {
     Athletics: number
@@ -141,6 +155,10 @@ export interface StoredCharacter {
 
   // Damage Calculator - Bonus Resistances Active toggle
   bonus_resistances_active?: boolean
+
+  // Undying DC and Roll Mod overrides
+  undying_dc?: number | null
+  undying_roll_mod?: number | null
 
   // Resistances
   resistances: {
@@ -265,6 +283,11 @@ export interface StoredCharacter {
     skilled_artist_used: boolean
     master_artist_used: boolean
   }
+  halberd_feat_flags?: {
+    two_in_one_used: boolean
+    two_in_one_plus_used: boolean
+    master_of_all_trades_used: boolean
+  }
   protege_flags?: {
     protege_1_lv3_obtained: boolean
     protege_1_lv5_used: boolean
@@ -279,7 +302,6 @@ export interface StoredCharacter {
   }
   temporary_fate_points?: number
   fate_points?: number
-  destiny_feat_slots?: number
 
   // Notes and Compendium (separate from notesStorage.ts)
   notes?: {
@@ -311,21 +333,99 @@ export interface CharacterList {
   version: string
 }
 
-const STORAGE_KEY = 'sd20_characters'
+const STORAGE_KEY_PREFIX = 'sd20_characters'
 const MAX_CHARACTERS = 10
 const STORAGE_VERSION = '1.0'
+
+// Per-user storage key based on logged-in user UUID
+export function getStorageKey(): string {
+  if (typeof window === 'undefined') return STORAGE_KEY_PREFIX
+  try {
+    const userData = localStorage.getItem('sd20_user')
+    if (userData) {
+      const user = JSON.parse(userData)
+      if (user.uuid) {
+        const userKey = `${STORAGE_KEY_PREFIX}_${user.uuid}`
+        // One-time migration: move data from old global key to per-user key
+        const oldData = localStorage.getItem(STORAGE_KEY_PREFIX)
+        if (oldData && !localStorage.getItem(userKey)) {
+          localStorage.setItem(userKey, oldData)
+          console.log('[CharacterStorage] Migrated data from global key to per-user key')
+          console.log(`[SD20 Storage] getStorageKey() migration happened: global -> "${userKey}"`)
+        }
+        // Clean up old global key
+        if (oldData) {
+          localStorage.removeItem(STORAGE_KEY_PREFIX)
+        }
+        console.log(`[SD20 Storage] getStorageKey() using per-user key: "${userKey}"`)
+        return userKey
+      }
+    }
+  } catch {
+    // No user found
+  }
+  // No user logged in - return a key that produces empty results
+  // Never fall back to global key to prevent cross-user data leaks
+  return `${STORAGE_KEY_PREFIX}_anonymous`
+}
+
+// Maximum size for localStorage in bytes (5MB is typical limit, use 4MB as safe threshold)
+const MAX_STORAGE_SIZE = 4 * 1024 * 1024
+
+// Prune character data for localStorage storage
+// Removes large non-essential fields to prevent quota exceeded errors
+function pruneCharacterForStorage(character: StoredCharacter): StoredCharacter {
+  const pruned = { ...character }
+
+  // Remove character_image if it's base64 data (very large)
+  // The image can be stored separately or reloaded from file
+  if ((pruned as any).character_image) {
+    delete (pruned as any).character_image
+  }
+
+  // NOTE: Personal compendium entries are NOT pruned - they are user-created data
+  // and cannot be reloaded from any API. Only the game's compendium (backgrounds, etc.)
+  // is loaded from the API, not the character's personal compendium.
+
+  // Prune notes if they exceed a reasonable size (keep summary)
+  if (pruned.notes?.sections) {
+    pruned.notes = {
+      sections: pruned.notes.sections.map(section => ({
+        ...section,
+        // Truncate very long content to 10000 chars per section
+        content: typeof section.content === 'string' && section.content.length > 10000
+          ? section.content.substring(0, 10000) + '... [truncated]'
+          : section.content
+      }))
+    }
+  }
+
+  return pruned
+}
+
+// Prune entire character list for storage
+function pruneCharacterListForStorage(list: CharacterList): CharacterList {
+  return {
+    ...list,
+    characters: list.characters.map(pruneCharacterForStorage)
+  }
+}
 
 // Get all characters from localStorage
 export function getAllCharacters(): CharacterList {
   if (typeof window === 'undefined') return { characters: [], active_uuid: null, version: STORAGE_VERSION }
 
-  const data = localStorage.getItem(STORAGE_KEY)
+  const key = getStorageKey()
+  const data = localStorage.getItem(key)
   if (!data) {
+    console.log(`[SD20 Storage] getAllCharacters() no data found under key="${key}"`)
     return { characters: [], active_uuid: null, version: STORAGE_VERSION }
   }
 
   try {
-    return JSON.parse(data)
+    const parsed = JSON.parse(data)
+    console.log(`[SD20 Storage] getAllCharacters() found ${parsed.characters?.length ?? 0} characters under key="${key}"`)
+    return parsed
   } catch (error) {
     console.error('Failed to parse character data:', error)
     return { characters: [], active_uuid: null, version: STORAGE_VERSION }
@@ -336,11 +436,30 @@ export function getAllCharacters(): CharacterList {
 export function saveCharacterList(list: CharacterList): boolean {
   if (typeof window === 'undefined') return false
 
+  const key = getStorageKey()
+  console.log(`[SD20 Storage] saveCharacterList() saving ${list.characters?.length ?? 0} characters under key="${key}"`)
+
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list))
+    // Prune large data to prevent quota exceeded errors
+    const prunedList = pruneCharacterListForStorage(list)
+    const jsonData = JSON.stringify(prunedList)
+
+    // Check if data size is reasonable
+    const dataSize = new Blob([jsonData]).size
+    if (dataSize > MAX_STORAGE_SIZE) {
+      console.warn(`Character data size (${(dataSize / 1024 / 1024).toFixed(2)}MB) exceeds safe threshold. Some data may be lost.`)
+    }
+
+    localStorage.setItem(getStorageKey(), jsonData)
     return true
   } catch (error) {
-    console.error('Failed to save character list:', error)
+    // Handle quota exceeded specifically
+    if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+      console.error('localStorage quota exceeded. Character data is too large to save.')
+      console.error('Consider exporting characters to file and removing large images.')
+    } else {
+      console.error('Failed to save character list:', error)
+    }
     return false
   }
 }
@@ -578,8 +697,10 @@ export function downloadAllCharactersAsFile(): void {
   URL.revokeObjectURL(url)
 }
 
-// Reset character to creation defaults (keeps identity, resets progression)
-export function resetCharacter(uuid: string, backgroundStats: any): boolean {
+// Reset character to creation defaults
+// fullReset = false: "Respec" mode - keeps equipment, inventory, flasks, learned abilities, companions, notes
+// fullReset = true: Complete wipe - clears everything
+export function resetCharacter(uuid: string, backgroundStats: any, fullReset: boolean = true): boolean {
   const list = getAllCharacters()
   const index = list.characters.findIndex(c => c.uuid === uuid)
 
@@ -589,6 +710,118 @@ export function resetCharacter(uuid: string, backgroundStats: any): boolean {
   }
 
   const character = list.characters[index]
+
+  // Debug logging
+  console.log('='.repeat(60))
+  console.log(`CHARACTER RESET - ${fullReset ? 'FULL RESET' : 'RESPEC MODE'}`)
+  console.log('='.repeat(60))
+  console.log(`Character: ${character.name} (UUID: ${character.uuid})`)
+  console.log(`Background ID: ${character.background_id}`)
+  console.log('')
+
+  console.log('--- BEFORE RESET ---')
+  console.log(`Level: ${character.level}`)
+  console.log(`Stats:`, character.stats)
+  console.log(`Creation Stats:`, character.creation_stats || 'NOT SET')
+  console.log(`Starting HP: ${character.starting_hp}, Creation Starting HP: ${character.creation_starting_hp || 'NOT SET'}`)
+  console.log(`Flasks: HP=${character.hp_flask}, FP=${character.fp_flask}, Level=${character.flask_level}`)
+  console.log(`Equipment slots filled:`, Object.entries(character.equipment || {}).filter(([_, v]) => v !== null).length)
+  console.log(`Inventory items:`, character.inventory?.length || 0)
+  console.log(`Learned Spells:`, character.learned_spells?.length || 0)
+  console.log(`Attuned Spells:`, character.attuned_spells?.length || 0)
+  console.log(`Learned Spirits:`, character.learned_spirits?.length || 0)
+  console.log(`Attuned Spirits:`, character.attuned_spirits?.length || 0)
+  console.log(`Learned Weapon Skills:`, character.learned_weapon_skills?.length || 0)
+  console.log(`Attuned Weapon Skills:`, character.attuned_weapon_skills?.length || 0)
+  console.log(`Companions:`, character.companions?.length || 0)
+  console.log(`Notes sections:`, character.notes?.sections?.length || 0)
+  console.log(`Compendium entries:`, character.compendium?.entries?.length || 0)
+  console.log(`Field notes keys:`, Object.keys(character.field_notes || {}).length)
+  console.log(`Bonus Resistances:`, character.bonus_resistances || 'NOT SET')
+  console.log(`Bonus Resistances Temp:`, character.bonus_resistances_temp || 'NOT SET')
+  console.log(`Bonus Resistances Active:`, character.bonus_resistances_active ?? 'NOT SET')
+  console.log(`Bonus Statuses (Status Thresholds):`, character.bonus_statuses || 'NOT SET')
+  console.log('')
+
+  // Determine which stats to use for reset:
+  // 1. Use creation_stats if available (stored from character creation)
+  // 2. For Chaotic Tarnished (background_id 10) without creation_stats, use current stats (rolled stats)
+  // 3. Otherwise, use background base stats
+  let resetStats = {
+    vitality: backgroundStats.vitality,
+    endurance: backgroundStats.endurance,
+    strength: backgroundStats.strength,
+    dexterity: backgroundStats.dexterity,
+    attunement: backgroundStats.attunement,
+    intelligence: backgroundStats.intelligence,
+    faith: backgroundStats.faith
+  }
+
+  if (character.creation_stats) {
+    // Use stored creation stats (best option)
+    resetStats = { ...character.creation_stats }
+  } else if (character.background_id === 10) {
+    // Chaotic Tarnished without creation_stats - use current stats as fallback
+    // This preserves rolled stats for existing characters created before this feature
+    resetStats = { ...character.stats }
+  }
+
+  // Determine starting_hp for reset:
+  // 1. Use creation_starting_hp if available
+  // 2. For Chaotic Tarnished, use Vitality * 2
+  // 3. Otherwise, use background starting_hp
+  let resetStartingHp = backgroundStats.starting_hp
+  if (character.creation_starting_hp) {
+    resetStartingHp = character.creation_starting_hp
+  } else if (character.background_id === 10) {
+    // Chaotic Tarnished: starting HP = Vitality * 2
+    resetStartingHp = resetStats.vitality * 2
+  }
+
+  // Debug: Log what will happen
+  console.log('--- RESET PLAN ---')
+  console.log(`Stats source: ${character.creation_stats ? 'creation_stats' : (character.background_id === 10 ? 'current stats (Chaotic Tarnished fallback)' : 'background base stats')}`)
+  console.log(`Reset stats will be:`, resetStats)
+  console.log(`Starting HP source: ${character.creation_starting_hp ? 'creation_starting_hp' : (character.background_id === 10 ? 'Vitality * 2' : 'background starting_hp')}`)
+  console.log(`Reset starting HP will be: ${resetStartingHp}`)
+  console.log('')
+
+  if (fullReset) {
+    console.log('FULL RESET - Everything will be cleared:')
+    console.log('  - Equipment: CLEARED')
+    console.log('  - Inventory: CLEARED')
+    console.log('  - Flasks: RESET to 4/4/0')
+    console.log('  - Learned Spells/Spirits/Skills: CLEARED')
+    console.log('  - Attuned Spells/Spirits/Skills: CLEARED')
+    console.log('  - All Modifications: CLEARED')
+    console.log('  - Companions: CLEARED')
+    console.log('  - Notes & Compendium: CLEARED')
+    console.log('  - Field Notes: CLEARED')
+  } else {
+    console.log('RESPEC MODE - Partial reset:')
+    console.log('  - Equipment: KEPT')
+    console.log('  - Inventory: KEPT')
+    console.log(`  - Flasks: KEPT (HP=${character.hp_flask}, FP=${character.fp_flask}, Level=${character.flask_level})`)
+    console.log(`  - Learned Spells: KEPT (${character.learned_spells?.length || 0} spells)`)
+    console.log(`  - Learned Spirits: KEPT (${character.learned_spirits?.length || 0} spirits)`)
+    console.log(`  - Learned Weapon Skills: KEPT (${character.learned_weapon_skills?.length || 0} skills)`)
+    console.log('  - Attuned Spells/Spirits/Skills: CLEARED (unattune all)')
+    console.log('  - All Modifications: CLEARED')
+    console.log(`  - Companions: KEPT (${character.companions?.length || 0} companions)`)
+    console.log(`  - Notes: KEPT (${character.notes?.sections?.length || 0} sections)`)
+    console.log(`  - Compendium: KEPT (${character.compendium?.entries?.length || 0} entries)`)
+    console.log(`  - Field Notes: KEPT (${Object.keys(character.field_notes || {}).length} keys)`)
+  }
+  console.log('')
+  console.log('ALWAYS RESET (both modes):')
+  console.log('  - Level: 0')
+  console.log('  - Stats: to creation values')
+  console.log('  - Skills & Knowledge: 0')
+  console.log('  - HP/FP/AP tracking')
+  console.log('  - Weapon Proficiencies: 0')
+  console.log('  - Feat flags, Fate/Destiny points')
+  console.log('  - Destined Traits: CLEARED')
+  console.log('')
 
   // Reset to creation defaults but keep identity
   list.characters[index] = {
@@ -604,17 +837,13 @@ export function resetCharacter(uuid: string, backgroundStats: any): boolean {
     created_at: character.created_at,
     last_played: new Date().toISOString(),
 
-    // Reset progression to level 1
-    level: 1,
-    stats: {
-      vitality: backgroundStats.vitality,
-      endurance: backgroundStats.endurance,
-      strength: backgroundStats.strength,
-      dexterity: backgroundStats.dexterity,
-      attunement: backgroundStats.attunement,
-      intelligence: backgroundStats.intelligence,
-      faith: backgroundStats.faith
-    },
+    // Preserve creation_stats and creation_starting_hp for future resets
+    creation_stats: character.creation_stats || (character.background_id === 10 ? { ...character.stats } : undefined),
+    creation_starting_hp: character.creation_starting_hp || (character.background_id === 10 ? resetStartingHp : undefined),
+
+    // Reset progression to level 0 (mandatory level up will trigger to get to level 1)
+    level: 0,
+    stats: resetStats,
 
     // Reset skills to 0
     skills: {
@@ -637,10 +866,10 @@ export function resetCharacter(uuid: string, backgroundStats: any): boolean {
     },
 
     // Reset HP tracking
-    starting_hp: backgroundStats.starting_hp,
+    starting_hp: resetStartingHp,
     level_hp: 0,
     health_die: { count: 1, sides: 6 },
-    current_hp: backgroundStats.starting_hp,
+    current_hp: resetStartingHp,
     current_fp: 2,
     current_ap: 8,
     temp_hp: 0,
@@ -648,10 +877,10 @@ export function resetCharacter(uuid: string, backgroundStats: any): boolean {
     max_fp_bonus: 0,
     max_ap_bonus: 0,
 
-    // Reset flasks
-    hp_flask: 4,
-    fp_flask: 4,
-    flask_level: 0,
+    // Flasks: keep in respec mode, reset in full mode
+    hp_flask: fullReset ? 4 : (character.hp_flask ?? 4),
+    fp_flask: fullReset ? 4 : (character.fp_flask ?? 4),
+    flask_level: fullReset ? 0 : (character.flask_level ?? 0),
 
     // Reset dodge tracking
     total_dodges: 0,
@@ -698,6 +927,33 @@ export function resetCharacter(uuid: string, backgroundStats: any): boolean {
       DarkFlat: 0
     },
 
+    // Reset Damage Calculator bonus resistances
+    bonus_resistances: {
+      Physical: 0,
+      Magic: 0,
+      Fire: 0,
+      Lightning: 0,
+      Dark: 0,
+      FlatPhysical: 0,
+      FlatMagic: 0,
+      FlatFire: 0,
+      FlatLightning: 0,
+      FlatDark: 0
+    },
+    bonus_resistances_temp: {
+      Physical: 0,
+      Magic: 0,
+      Fire: 0,
+      Lightning: 0,
+      Dark: 0,
+      FlatPhysical: 0,
+      FlatMagic: 0,
+      FlatFire: 0,
+      FlatLightning: 0,
+      FlatDark: 0
+    },
+    bonus_resistances_active: false,
+
     // Reset combat settings
     combat_settings: {
       twoHandingMainHand: false,
@@ -705,11 +961,11 @@ export function resetCharacter(uuid: string, backgroundStats: any): boolean {
       activeCompanionId: null
     },
 
-    // Reset field notes
-    field_notes: {},
+    // Field notes: keep in respec mode, clear in full mode
+    field_notes: fullReset ? {} : (character.field_notes || {}),
 
-    // Clear equipment
-    equipment: {
+    // Equipment: keep in respec mode, clear in full mode
+    equipment: fullReset ? {
       MainHand: null,
       OffHand: null,
       Armor: null,
@@ -720,30 +976,41 @@ export function resetCharacter(uuid: string, backgroundStats: any): boolean {
       Ring3: null,
       Ring4: null,
       Ring5: null
-    },
+    } : (character.equipment || {
+      MainHand: null,
+      OffHand: null,
+      Armor: null,
+      Artifact: null,
+      Artifact2: null,
+      Ring1: null,
+      Ring2: null,
+      Ring3: null,
+      Ring4: null,
+      Ring5: null
+    }),
 
-    // Clear inventory
-    inventory: [],
+    // Inventory: keep in respec mode, clear in full mode
+    inventory: fullReset ? [] : (character.inventory || []),
 
-    // Clear spell system
+    // Spell system: in respec mode, keep learned but clear attuned and modifications
     attuned_spells: [],
-    learned_spells: [],
+    learned_spells: fullReset ? [] : (character.learned_spells || []),
     spell_modifications: {},
 
-    // Clear spirit system
+    // Spirit system: in respec mode, keep learned but clear attuned and modifications
     attuned_spirits: [],
-    learned_spirits: [],
+    learned_spirits: fullReset ? [] : (character.learned_spirits || []),
     spirit_modifications: {},
 
-    // Clear weapon skills
+    // Weapon skills: in respec mode, keep learned but clear attuned and modifications
     attuned_weapon_skills: [],
-    learned_weapon_skills: [],
+    learned_weapon_skills: fullReset ? [] : (character.learned_weapon_skills || []),
     weapon_skill_modifications: {},
 
-    // Clear weapon modifications
+    // Weapon modifications: always clear
     weapon_modifications: {},
 
-    // Clear destined traits
+    // Destined traits: always clear (these are progression-based)
     obtained_destined_traits: [],
     destined_trait_modifications: {},
 
@@ -791,6 +1058,11 @@ export function resetCharacter(uuid: string, backgroundStats: any): boolean {
       skilled_artist_used: false,
       master_artist_used: false
     },
+    halberd_feat_flags: {
+      two_in_one_used: false,
+      two_in_one_plus_used: false,
+      master_of_all_trades_used: false
+    },
     protege_flags: {
       protege_1_lv3_obtained: false,
       protege_1_lv5_used: false,
@@ -805,20 +1077,49 @@ export function resetCharacter(uuid: string, backgroundStats: any): boolean {
     },
     temporary_fate_points: 0,
     fate_points: 2,
-    destiny_feat_slots: 1,
 
-    // Clear notes and compendium
-    notes: { sections: [] },
-    compendium: { entries: [] },
+    // Notes and compendium: keep in respec mode, clear in full mode
+    notes: fullReset ? { sections: [] } : (character.notes || { sections: [] }),
+    compendium: fullReset ? { entries: [] } : (character.compendium || { entries: [] }),
 
-    // Clear companions
-    companions: [],
+    // Companions: keep in respec mode, clear in full mode
+    companions: fullReset ? [] : (character.companions || []),
 
     // Clear level up state
     pending_level_up: null,
     has_multi_proficient: false,
     multi_proficient_retroactive_points: 0
   }
+
+  // Debug: Log the result
+  const resetChar = list.characters[index]
+  console.log('--- AFTER RESET ---')
+  console.log(`Level: ${resetChar.level}`)
+  console.log(`Stats:`, resetChar.stats)
+  console.log(`Creation Stats saved:`, resetChar.creation_stats ? 'YES' : 'NO')
+  console.log(`Creation Starting HP saved:`, resetChar.creation_starting_hp || 'NO')
+  console.log(`Starting HP: ${resetChar.starting_hp}`)
+  console.log(`Flasks: HP=${resetChar.hp_flask}, FP=${resetChar.fp_flask}, Level=${resetChar.flask_level}`)
+  console.log(`Equipment slots filled:`, Object.entries(resetChar.equipment || {}).filter(([_, v]) => v !== null).length)
+  console.log(`Inventory items:`, resetChar.inventory?.length || 0)
+  console.log(`Learned Spells:`, resetChar.learned_spells?.length || 0)
+  console.log(`Attuned Spells:`, resetChar.attuned_spells?.length || 0)
+  console.log(`Learned Spirits:`, resetChar.learned_spirits?.length || 0)
+  console.log(`Attuned Spirits:`, resetChar.attuned_spirits?.length || 0)
+  console.log(`Learned Weapon Skills:`, resetChar.learned_weapon_skills?.length || 0)
+  console.log(`Attuned Weapon Skills:`, resetChar.attuned_weapon_skills?.length || 0)
+  console.log(`Companions:`, resetChar.companions?.length || 0)
+  console.log(`Notes sections:`, resetChar.notes?.sections?.length || 0)
+  console.log(`Compendium entries:`, resetChar.compendium?.entries?.length || 0)
+  console.log(`Field notes keys:`, Object.keys(resetChar.field_notes || {}).length)
+  console.log(`Bonus Resistances:`, resetChar.bonus_resistances || 'NOT SET')
+  console.log(`Bonus Resistances Temp:`, resetChar.bonus_resistances_temp || 'NOT SET')
+  console.log(`Bonus Resistances Active:`, resetChar.bonus_resistances_active ?? 'NOT SET')
+  console.log(`Bonus Statuses (Status Thresholds):`, resetChar.bonus_statuses || 'NOT SET')
+  console.log('')
+  console.log('='.repeat(60))
+  console.log('CHARACTER RESET COMPLETE')
+  console.log('='.repeat(60))
 
   return saveCharacterList(list)
 }
@@ -871,4 +1172,126 @@ export function migrateCharacterData(): boolean {
   }
 
   return true
+}
+
+// =============================================================================
+// SYNC EVENT SYSTEM
+// =============================================================================
+// Allows external composables (useCharacterSync) to hook into storage changes
+// for API synchronization while keeping localStorage as the primary store.
+
+type SyncEventType = 'create' | 'update' | 'delete'
+type SyncCallback = (type: SyncEventType, character: StoredCharacter) => void
+
+// Registry of sync callbacks
+const syncCallbacks: Set<SyncCallback> = new Set()
+
+// Register a sync callback
+export function onCharacterSync(callback: SyncCallback): () => void {
+  syncCallbacks.add(callback)
+  // Return unsubscribe function
+  return () => {
+    syncCallbacks.delete(callback)
+  }
+}
+
+// Emit a sync event to all registered callbacks
+function emitSyncEvent(type: SyncEventType, character: StoredCharacter): void {
+  for (const callback of syncCallbacks) {
+    try {
+      callback(type, character)
+    } catch (error) {
+      console.error('[CharacterStorage] Sync callback error:', error)
+    }
+  }
+}
+
+// =============================================================================
+// SYNC-AWARE FUNCTIONS
+// =============================================================================
+// These wrap the core storage functions to emit sync events.
+// Use these in the app to get automatic API synchronization.
+
+// Add new character with sync
+export function addCharacterWithSync(character: StoredCharacter): boolean {
+  const success = addCharacter(character)
+  if (success) {
+    emitSyncEvent('create', character)
+  }
+  return success
+}
+
+// Update character with sync
+export function updateCharacterWithSync(uuid: string, updates: Partial<StoredCharacter>): boolean {
+  const success = updateCharacter(uuid, updates)
+  if (success) {
+    // Get the full updated character
+    const list = getAllCharacters()
+    const character = list.characters.find(c => c.uuid === uuid)
+    if (character) {
+      emitSyncEvent('update', character)
+    }
+  }
+  return success
+}
+
+// Delete character with sync
+export function deleteCharacterWithSync(uuid: string): boolean {
+  // Get character before deletion for sync event
+  const list = getAllCharacters()
+  const character = list.characters.find(c => c.uuid === uuid)
+
+  const success = deleteCharacter(uuid)
+  if (success && character) {
+    emitSyncEvent('delete', character)
+  }
+  return success
+}
+
+// Reset character with sync
+export function resetCharacterWithSync(uuid: string, backgroundStats: any, fullReset: boolean = true): boolean {
+  const success = resetCharacter(uuid, backgroundStats, fullReset)
+  if (success) {
+    // Get the reset character
+    const list = getAllCharacters()
+    const character = list.characters.find(c => c.uuid === uuid)
+    if (character) {
+      emitSyncEvent('update', character)
+    }
+  }
+  return success
+}
+
+// Import character with sync
+export function importCharacterWithSync(jsonString: string): boolean {
+  const success = importCharacter(jsonString)
+  if (success) {
+    // Get the imported character (it was just added)
+    const list = getAllCharacters()
+    if (list.characters.length > 0) {
+      const character = list.characters.find(c => c.uuid === list.active_uuid)
+      if (character) {
+        emitSyncEvent('create', character)
+      }
+    }
+  }
+  return success
+}
+
+// Import multiple characters with sync
+export function importMultipleCharactersWithSync(jsonString: string): { success: number; failed: number } {
+  const before = getAllCharacters().characters.map(c => c.uuid)
+  const result = importMultipleCharacters(jsonString)
+
+  if (result.success > 0) {
+    // Find newly added characters
+    const after = getAllCharacters().characters
+    for (const character of after) {
+      if (!before.includes(character.uuid)) {
+        emitSyncEvent('create', character)
+      }
+    }
+  }
+
+  return result
 }

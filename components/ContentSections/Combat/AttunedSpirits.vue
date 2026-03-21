@@ -75,6 +75,26 @@
                 <span class="text-gray-400">Range:</span>
                 {{ spirit.range }}
               </div>
+
+              <!-- CF4: Protection Display -->
+              <div v-if="hasProtection(spirit)" class="protection-section mt-2 pt-2 border-t border-gray-700">
+                <div class="text-gray-400 font-semibold mb-1">Protection Granted:</div>
+                <!-- Damage Protection -->
+                <div v-for="(prot, idx) in spirit.damage_protection" :key="'dmg-' + idx" class="protection-entry">
+                  <span class="protection-type">{{ formatProtectionType(prot.type) }}:</span>
+                  {{ formatDamageProtection(prot) }}
+                </div>
+                <!-- Buildup Protection -->
+                <div v-for="(prot, idx) in spirit.buildup_protection" :key="'bld-' + idx" class="protection-entry">
+                  <span class="protection-type">{{ formatProtectionType(prot.type) }} Buildup:</span>
+                  {{ formatBuildupProtection(prot) }}
+                </div>
+                <!-- Condition Protection -->
+                <div v-for="(prot, idx) in spirit.condition_protection" :key="'cnd-' + idx" class="protection-entry">
+                  <span class="protection-type">{{ prot.condition }} Immunity:</span>
+                  {{ formatConditionProtection(prot) }}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -199,6 +219,72 @@ function getSpiritScalingBonus(spirit: any): number {
   const offHandBonus = getOffHandScalingBonus(spirit)
   // Return the maximum of the two
   return Math.max(mainHandBonus, offHandBonus)
+}
+
+// CF4: Protection helper functions
+function hasProtection(spirit: any): boolean {
+  return (spirit.damage_protection && spirit.damage_protection.length > 0) ||
+         (spirit.buildup_protection && spirit.buildup_protection.length > 0) ||
+         (spirit.condition_protection && spirit.condition_protection.length > 0)
+}
+
+function formatProtectionType(type: string): string {
+  return type.charAt(0) + type.slice(1).toLowerCase()
+}
+
+function formatDamageProtection(prot: any): string {
+  const parts: string[] = []
+  if (prot.tiers > 0) parts.push(`${prot.tiers} tier${prot.tiers > 1 ? 's' : ''}`)
+  if (prot.flat > 0) parts.push(`+${prot.flat} flat`)
+  if (prot.dice_count > 0 && prot.dice_value > 0) parts.push(`${prot.dice_count}d${prot.dice_value}`)
+  if (prot.percentage > 0) parts.push(`${prot.percentage}% (${prot.percentage_timing?.toLowerCase() || 'final'})`)
+
+  const duration = formatDuration(prot)
+  const target = formatTarget(prot)
+
+  let result = parts.join(', ') || 'None'
+  if (duration) result += ` | ${duration}`
+  if (target) result += ` | ${target}`
+  return result
+}
+
+function formatBuildupProtection(prot: any): string {
+  const parts: string[] = []
+  if (prot.flat > 0) parts.push(`-${prot.flat} flat`)
+  if (prot.dice_count > 0 && prot.dice_value > 0) parts.push(`${prot.dice_count}d${prot.dice_value}`)
+  if (prot.percentage > 0) parts.push(`${prot.percentage}% (${prot.percentage_timing?.toLowerCase() || 'final'})`)
+
+  const duration = formatDuration(prot)
+  const target = formatTarget(prot)
+
+  let result = parts.join(', ') || 'None'
+  if (duration) result += ` | ${duration}`
+  if (target) result += ` | ${target}`
+  return result
+}
+
+function formatConditionProtection(prot: any): string {
+  const duration = formatDuration(prot)
+  const target = formatTarget(prot)
+
+  let result = 'Immune'
+  if (duration) result += ` | ${duration}`
+  if (target) result += ` | ${target}`
+  return result
+}
+
+function formatDuration(prot: any): string {
+  const parts: string[] = []
+  if (prot.duration_turns > 0) parts.push(`${prot.duration_turns} turn${prot.duration_turns > 1 ? 's' : ''}`)
+  if (prot.duration_attacks > 0) parts.push(`${prot.duration_attacks} hit${prot.duration_attacks > 1 ? 's' : ''}`)
+  return parts.join(' or ')
+}
+
+function formatTarget(prot: any): string {
+  if (prot.apply_to_caster && prot.apply_to_target) return 'Self & Target'
+  if (prot.apply_to_caster) return 'Self'
+  if (prot.apply_to_target) return 'Target'
+  return ''
 }
 </script>
 
@@ -329,6 +415,22 @@ function getSpiritScalingBonus(spirit: any): number {
 
 .scaling-positive {
   color: #4ade80;
+  font-weight: var(--font-weight-semibold);
+}
+
+/* CF4: Protection Section Styles */
+.protection-section {
+  border-color: var(--color-border-secondary);
+}
+
+.protection-entry {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  margin-bottom: 2px;
+}
+
+.protection-type {
+  color: #60a5fa;
   font-weight: var(--font-weight-semibold);
 }
 </style>

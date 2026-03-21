@@ -14,8 +14,7 @@ export function skillModBonusFromStats(identifier: string): number {
 }
 
 export function statMod(statAmount: number): number {
-  const val = Math.floor(Math.abs(10 - statAmount) / 2)
-  return statAmount < 10 ? -val : val
+  return Math.floor((statAmount - 10) / 2)
 }
 
 export function decreaseValue(value: string | number, min?: string | number) {

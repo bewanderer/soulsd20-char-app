@@ -1,5 +1,5 @@
 <template>
-  <div class="status-container">
+  <div class="status-container" :class="{ 'status-over-threshold': isOverThreshold }">
     <div class="status-buttons-wrapper">
       <button class="status-button" @click="decreaseStatus">
         -
@@ -66,6 +66,11 @@ const resistance = computed(()=>{
   return 0
 })
 
+// Visual indicator when status buildup meets or exceeds threshold
+const isOverThreshold = computed(() => {
+  return inflictionAmt.value >= resistance.value && resistance.value > 0
+})
+
 function setAmt() {
   // Validate and reset to 0 if empty or invalid
   if (inflictionAmt.value === null || inflictionAmt.value === undefined || isNaN(inflictionAmt.value)) {
@@ -99,6 +104,18 @@ function decreaseStatus() {
 .status-container:hover {
   border-color: var(--color-accent-gold);
   box-shadow: var(--shadow-gold-soft);
+}
+
+/* Visual indicator when status buildup meets or exceeds threshold */
+.status-container.status-over-threshold {
+  border-color: var(--color-btn-danger-border);
+  box-shadow: 0 0 6px rgba(220, 38, 38, 0.5);
+  background: rgba(220, 38, 38, 0.15);
+}
+
+.status-container.status-over-threshold:hover {
+  border-color: var(--color-btn-danger-border);
+  box-shadow: 0 0 10px rgba(220, 38, 38, 0.7);
 }
 
 .status-buttons-wrapper {

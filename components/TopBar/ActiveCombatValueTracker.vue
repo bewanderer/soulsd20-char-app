@@ -147,11 +147,12 @@ const maxHp = computed(() => {
   const levelHP = playerStore.LevelHP || 0
   const bonusHP = playerStore.UserInputValues.MaxHPBonus || 0
 
-  // Vit Mod bonus: Level 1 gets x1, Level 2+ gets x(floor(level/2) + 1)
+  // Vit Mod bonus: Applied once per even level (2, 4, 6, etc.)
+  // Level 1 = 0, Level 2 = 1x, Level 4 = 2x, Level 20 = 10x
   const vitality = playerStore.CharacterStats.Stats.Vitality
   const vitMod = statMod(vitality)
   const level = playerStore.Level
-  const vitBonus = level === 1 ? vitMod : vitMod * (Math.floor(level / 2) + 1)
+  const vitBonus = vitMod * Math.floor(level / 2)
 
   return startingHP + levelHP + bonusHP + vitBonus
 })

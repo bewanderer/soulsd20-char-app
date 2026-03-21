@@ -8,7 +8,7 @@
       <div v-if="visionInfo" class="ability-group">
         <h4 class="ability-title">Vision</h4>
         <p class="ability-text">
-          {{ visionInfo.type }} {{ visionInfo.range }} ft
+          {{ formatVisionType(visionInfo.type) }} {{ visionInfo.range }} ft
         </p>
       </div>
 
@@ -16,15 +16,15 @@
       <div v-if="hasSkillBonuses" class="ability-group">
         <h4 class="ability-title">Skill Bonuses</h4>
         <div v-for="(value, skill) in skillBonuses" :key="skill" class="ability-text">
-          {{ skill }}: +{{ value }}
+          {{ formatSkillName(skill) }}: {{ formatSkillValue(value) }}
         </div>
       </div>
 
       <!-- Resistances -->
       <div v-if="hasResistances" class="ability-group">
         <h4 class="ability-title">Resistances</h4>
-        <div v-for="(value, type) in resistances" :key="type" class="ability-text">
-          {{ formatResistanceType(type) }}: {{ formatResistanceValue(value) }}
+        <div v-for="(text, index) in formattedResistances" :key="index" class="ability-text">
+          {{ text }}
         </div>
       </div>
 
@@ -87,11 +87,35 @@ const baseAbilities = computed(() => {
 
 const visionInfo = computed(() => baseAbilities.value.vision || null)
 const skillBonuses = computed(() => baseAbilities.value.skill_bonuses || {})
-const resistances = computed(() => baseAbilities.value.resistances || {})
+const resistances = computed(() => baseAbilities.value.resistances || [])
 const specialAbilities = computed(() => baseAbilities.value.special_abilities || [])
 
+// Handle resistances as array (API format)
+const resistancesList = computed(() => {
+  const res = resistances.value
+  // If it's already an array, return it
+  if (Array.isArray(res)) return res
+  // If it's an object (old format), convert to array
+  if (res && typeof res === 'object') {
+    const list: any[] = []
+    for (const key of Object.keys(res)) {
+      if (key === 'scaling' || key === 'condition' || key === 'choice') continue
+      list.push({ type: key, value: res[key] })
+    }
+    return list
+  }
+  return []
+})
+
+// Pre-compute formatted resistances so Vue tracks the level dependency for reactivity
+const formattedResistances = computed(() => {
+  // Use playerStore.Level directly - this is the reactive source for level changes
+  const charLevel = playerStore.Level ?? 1
+  return resistancesList.value.map(res => formatResistanceEntryWithLevel(res, charLevel))
+})
+
 const hasSkillBonuses = computed(() => Object.keys(skillBonuses.value).length > 0)
-const hasResistances = computed(() => Object.keys(resistances.value).length > 0)
+const hasResistances = computed(() => resistancesList.value.length > 0)
 const hasSpecialAbilities = computed(() => specialAbilities.value.length > 0)
 
 // Parse bloodline abilities
@@ -102,28 +126,70 @@ const bloodlineAbilities = computed(() => {
 
 const hasBloodlineAbilities = computed(() => bloodlineAbilities.value.length > 0)
 
-// Format resistance type (capitalize and add spaces)
-function formatResistanceType(type: string | number): string {
-  const typeStr = String(type)
-  return typeStr.split('_').map(word =>
+// Format vision type (e.g., "half_darkvision" -> "Half Darkvision")
+function formatVisionType(type: string): string {
+  if (!type) return ''
+  return type.split('_').map(word =>
     word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
   ).join(' ')
 }
 
-// Format resistance value (handle flat vs percentage)
-function formatResistanceValue(value: any): string {
-  if (typeof value === 'object' && value.scaling) {
-    // Level-based scaling
-    return formatScaling(value.scaling)
+// Format skill name (e.g., "Fire_Keeping" -> "Fire Keeping")
+function formatSkillName(skill: string | number): string {
+  const skillStr = String(skill)
+  return skillStr.split('_').map(word =>
+    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+  ).join(' ')
+}
+
+// Format skill value (handle negative values, text values like "+1 every 5 levels")
+function formatSkillValue(value: any): string {
+  if (typeof value === 'number') {
+    return value >= 0 ? `+${value}` : String(value)
   }
-  return typeof value === 'number' ? `+${value}` : String(value)
+  // String values like "+1 every 5 levels" - return as-is
+  return String(value)
+}
+
+// Format a resistance entry from the array format (with explicit level for reactivity)
+// Entry format: { type: "physical", tiers: 1, scaling: [...] } or { type: "magic", flat: 2, scaling: [...] }
+function formatResistanceEntryWithLevel(entry: any, level: number): string {
+  if (!entry || typeof entry !== 'object') return String(entry)
+
+  // Get the damage type (capitalize)
+  const damageType = entry.type
+    ? entry.type.charAt(0).toUpperCase() + entry.type.slice(1).toLowerCase()
+    : 'Unknown'
+
+  // Determine if it's tiers or flat
+  const isTiers = 'tiers' in entry
+  const isFlat = 'flat' in entry
+  const baseValue = entry.tiers ?? entry.flat ?? 0
+
+  // Get current value based on character level and scaling
+  let currentValue = baseValue
+  if (entry.scaling && Array.isArray(entry.scaling)) {
+    for (const scale of entry.scaling) {
+      if (level >= scale.level) {
+        currentValue = scale.tiers ?? scale.flat ?? currentValue
+      }
+    }
+  }
+
+  // Format the output
+  if (isTiers) {
+    return `${damageType}: +${currentValue} tier${currentValue !== 1 ? 's' : ''}`
+  } else if (isFlat) {
+    return `${damageType} (Flat): +${currentValue}`
+  } else {
+    return `${damageType}: +${currentValue}`
+  }
 }
 
 // Format scaling based on character level
 function formatScaling(scaling: any): string {
-  if (!activeChar.value) return 'Unknown'
-
-  const level = activeChar.value.level
+  // Use playerStore.Level directly for reactivity
+  const level = playerStore.Level ?? 1
   const scalingKeys = Object.keys(scaling).map(Number).sort((a, b) => a - b)
 
   // Find the highest level threshold that character has reached
