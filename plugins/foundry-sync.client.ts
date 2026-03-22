@@ -6,7 +6,8 @@ import { statMod, skillModBonusFromStats } from '@/mixins/utils'
 import { useCompendiumStore } from '@/store/compendium'
 import { calculateWeaponScaling, calculateSpellScaling } from '@/mixins/combatUtils'
 
-const WEBSOCKET_URL = 'ws://localhost:8080'
+// Set at plugin init from runtime config
+let WEBSOCKET_URL = 'ws://localhost:8080'
 const MAX_RECONNECT_ATTEMPTS = 50
 const RECONNECT_DELAY = 3000
 const CONNECTION_KEY = '__sd20_foundry_sync__'
@@ -945,7 +946,10 @@ function startConnectionMonitor() {
 }
 
 export default defineNuxtPlugin(() => {
-  console.log('[Foundry Sync] Plugin initializing')
+  // Set relay URL from runtime config
+  const config = useRuntimeConfig()
+  WEBSOCKET_URL = (config.public.RELAY_URL as string) || 'ws://localhost:8080'
+  console.log('[Foundry Sync] Plugin initializing, relay:', WEBSOCKET_URL)
 
   const state = getState()
 

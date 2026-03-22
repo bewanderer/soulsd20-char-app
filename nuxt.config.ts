@@ -5,6 +5,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       API_BASE_URL: process.env.API_BASE_URL || 'http://127.0.0.1:8000',
+      RELAY_URL: process.env.RELAY_URL || 'ws://localhost:8080',
     }
   },
   components: [
