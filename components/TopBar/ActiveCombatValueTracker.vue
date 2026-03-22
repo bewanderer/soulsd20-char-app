@@ -73,7 +73,7 @@
           <button @click="drinkFlask('hp')" class="w-full flask-drink-button">
             <div class="flex w-full justify-center items-center gap-1 p-1 text-center">
               <span class="flask-count-text">{{ playerStore.UserInputValues.HpFlask }}</span>
-              <img src="@/img/icons/flask.png" class="w-6" style="filter: brightness(0) invert(0.9);">
+              <img src="/img/icons/flask.png" class="w-6" style="filter: brightness(0) invert(0.9);">
             </div>
           </button>
 
@@ -99,7 +99,7 @@
           <button @click="drinkFlask('fp')" class="w-full flask-drink-button">
             <div class="flex w-full justify-center items-center gap-1 p-1 text-center">
               <span class="flask-count-text">{{ playerStore.UserInputValues.FpFlask }}</span>
-              <img src="@/img/icons/flask.png" class="w-6" style="filter: brightness(0) invert(0.9);">
+              <img src="/img/icons/flask.png" class="w-6" style="filter: brightness(0) invert(0.9);">
             </div>
           </button>
 
@@ -124,7 +124,7 @@
         <div class="flex h-2/3 items-center justify-center">
         <span class="flask-level-text">+{{ playerStore.UserInputValues.FlaskLevel }}</span>
           <div class="flex flex-col items-center justify-center flask-level-text">
-            <img src="@/img/icons/flask.png" class="w-6" style="filter: brightness(0) invert(0.9);" />
+            <img src="/img/icons/flask.png" class="w-6" style="filter: brightness(0) invert(0.9);" />
           </div>
         </div>
 
