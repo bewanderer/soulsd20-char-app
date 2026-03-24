@@ -123,9 +123,14 @@ const characterImage = computed(() => {
     // Plain URL string
   }
 
-  // Server-hosted images need the API base URL prefix
+  // R2-hosted images (production) are full URLs already
+  if (url.startsWith('https://')) return url
+
+  // Server-hosted images (development) need the API base URL prefix
   if (url.startsWith('/media/')) {
-    return `http://127.0.0.1:8000${url}`
+    const config = useRuntimeConfig()
+    const apiBase = config.public.API_BASE_URL || 'http://127.0.0.1:8000'
+    return `${apiBase}${url}`
   }
   return url
 })
