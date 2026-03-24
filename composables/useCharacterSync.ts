@@ -198,6 +198,7 @@ export function useCharacterSync() {
       console.log(`[SD20 Sync] flushSyncQueue() processing: type="${item.type}" uuid="${item.uuid}" retries=${item.retries}`)
       try {
         let success = false
+        let lastResponseStatus = 0
 
         switch (item.type) {
           case 'create': {
@@ -205,6 +206,7 @@ export function useCharacterSync() {
               const apiData = characterApi.toApiFormat(item.data as StoredCharacter)
               const response = await characterApi.createCharacter(apiData)
               success = response.ok
+              lastResponseStatus = response.error?.status || 0
               if (!success) {
                 console.error('[CharacterSync] Create failed:', response.error)
               } else {
@@ -218,6 +220,7 @@ export function useCharacterSync() {
               const apiData = characterApi.toApiFormat(item.data as StoredCharacter)
               const response = await characterApi.updateCharacter(item.uuid, apiData)
               success = response.ok
+              lastResponseStatus = response.error?.status || 0
               if (!success) {
                 console.error('[CharacterSync] Update failed:', response.error)
               } else {
@@ -229,6 +232,7 @@ export function useCharacterSync() {
           case 'delete': {
             const response = await characterApi.deleteCharacter(item.uuid)
             success = response.ok
+            lastResponseStatus = response.error?.status || 0
             if (!success) {
               console.error('[CharacterSync] Delete failed:', response.error)
             } else {
@@ -239,12 +243,18 @@ export function useCharacterSync() {
         }
 
         if (!success) {
-          item.retries++
-          if (item.retries < MAX_RETRIES) {
-            console.warn(`[SD20 Sync] flushSyncQueue() item failed, will retry: type="${item.type}" uuid="${item.uuid}" retries=${item.retries}`)
-            failedItems.push(item)
+          // Don't retry 400 errors (validation failures won't fix themselves)
+          const isValidationError = lastResponseStatus === 400
+          if (isValidationError) {
+            console.error(`[SD20 Sync] Validation error for ${item.type} ${item.uuid} - not retrying (400)`)
           } else {
-            console.error(`[CharacterSync] Max retries reached for ${item.type} ${item.uuid}`)
+            item.retries++
+            if (item.retries < MAX_RETRIES) {
+              console.warn(`[SD20 Sync] flushSyncQueue() item failed, will retry: type="${item.type}" uuid="${item.uuid}" retries=${item.retries}`)
+              failedItems.push(item)
+            } else {
+              console.error(`[SD20 Sync] Max retries reached for ${item.type} ${item.uuid}`)
+            }
           }
         }
       } catch (error) {
