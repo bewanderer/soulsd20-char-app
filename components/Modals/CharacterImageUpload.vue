@@ -165,7 +165,8 @@ async function cropAndUpload() {
     formData.append('image', blob, 'portrait.jpg')
 
     const token = localStorage.getItem('sd20_auth_token')
-    const baseUrl = 'http://127.0.0.1:8000'
+    const config = useRuntimeConfig()
+    const baseUrl = config.public.API_BASE_URL || 'http://127.0.0.1:8000'
 
     const response = await fetch(
       `${baseUrl}/api/characters/${playerStore.UUID}/upload-image/`,
