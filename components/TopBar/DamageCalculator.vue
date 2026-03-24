@@ -384,8 +384,9 @@ function calulateDamage(damage: number, resistance: number, extraFlat: number): 
   }
 
   const percentageDamage = Math.floor(dmg * effectiveResForPercentage / 10)
-  const flatFromResistance = Math.max(res - 3, 0)
-  const totalFlat = flatFromResistance + flat
+  const tierBonusFlat = res > 0 ? Math.min(res, 3) : 0
+  const overflowFlat = Math.max(res - 3, 0)
+  const totalFlat = tierBonusFlat + overflowFlat + flat
   const finalDamage = dmg - percentageDamage - totalFlat
 
   return Math.max(finalDamage, 0)
