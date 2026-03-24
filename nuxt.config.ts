@@ -33,7 +33,7 @@ export default defineNuxtConfig({
   security: {
     headers: {
       contentSecurityPolicy: {
-        'img-src': ["'self'", 'data:', 'blob:', 'http://127.0.0.1:8000'],
+        'img-src': ["'self'", 'data:', 'blob:', 'http://127.0.0.1:8000', 'https://*.r2.dev', 'https://soulsd20-api.up.railway.app'],
       },
       crossOriginEmbedderPolicy: 'unsafe-none',
       crossOriginResourcePolicy: 'cross-origin',
