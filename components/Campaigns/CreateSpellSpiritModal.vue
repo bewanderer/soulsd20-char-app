@@ -68,6 +68,10 @@
             <input v-model="form.cast_time" class="form-input" placeholder="e.g. 1 Action" />
           </div>
           <div class="form-group flex-1">
+            <label>Range</label>
+            <input v-model="form.range" class="form-input" placeholder="e.g. 30ft" />
+          </div>
+          <div class="form-group flex-1">
             <label>Duration</label>
             <input v-model="form.duration" class="form-input" placeholder="e.g. Instantaneous" />
           </div>
@@ -151,10 +155,46 @@
               <input v-model.number="form.charged.fp" type="number" min="0" class="form-input" />
             </div>
           </div>
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label>Charged Range</label>
+              <input v-model="form.charged.range" class="form-input" />
+            </div>
+            <div class="form-group flex-1">
+              <label>Charged Duration</label>
+              <input v-model="form.charged.duration" class="form-input" />
+            </div>
+          </div>
           <div class="form-group">
             <label>Charged Description</label>
             <textarea v-model="form.charged.description" class="form-input" rows="2"></textarea>
           </div>
+          <h4 class="form-subsection-title">Charged Dice</h4>
+          <div v-for="(d, i) in form.charged_dice" :key="'cdice-'+i" class="repeatable-row">
+            <label class="row-label">Type:</label>
+            <select v-model="d.type" class="form-input-sm">
+              <option v-for="et in elementTypes" :key="et" :value="et">{{ et }}</option>
+            </select>
+            <label class="row-label">Count:</label>
+            <input v-model.number="d.count" type="number" class="form-input-sm num-sm" />
+            <span class="dice-d">d</span>
+            <label class="row-label">Value:</label>
+            <input v-model.number="d.value" type="number" class="form-input-sm num-sm" />
+            <button @click="form.charged_dice.splice(i, 1)" class="btn-remove-row">X</button>
+          </div>
+          <button @click="form.charged_dice.push({ type: 'MAGIC', count: 1, value: 6 })" class="btn-add-row">+ Add Charged Die</button>
+
+          <h4 class="form-subsection-title">Charged Bonuses</h4>
+          <div v-for="(b, i) in form.charged_bonuses" :key="'cbonus-'+i" class="repeatable-row">
+            <label class="row-label">Type:</label>
+            <select v-model="b.type" class="form-input-sm">
+              <option v-for="bt in bonusTypes" :key="bt" :value="bt">{{ bt }}</option>
+            </select>
+            <label class="row-label">Value:</label>
+            <input v-model.number="b.value" type="number" class="form-input-sm num-sm" />
+            <button @click="form.charged_bonuses.splice(i, 1)" class="btn-remove-row">X</button>
+          </div>
+          <button @click="form.charged_bonuses.push({ type: 'MAX_HP', value: 0 })" class="btn-add-row">+ Add Charged Bonus</button>
         </template>
 
         <!-- Protection sections -->
@@ -696,6 +736,8 @@ const form = reactive({
   dice: [] as Array<{ type: string; count: number; value: number }>,
   bonuses: [] as Array<{ type: string; value: number }>,
   charged: { cast_time: '', ap: 0, fp: 0, range: '', duration: '', description: '' },
+  charged_dice: [] as Array<{ type: string; count: number; value: number }>,
+  charged_bonuses: [] as Array<{ type: string; value: number }>,
   // Protection fields
   damage_protection: [] as any[],
   buildup_protection: [] as any[],
@@ -729,8 +771,13 @@ async function submitItem() {
     payload.requirements = form.requirements
     payload.dice = form.dice
     payload.bonuses = form.bonuses
+    payload.range = form.range
     if (hasCharged.value) {
-      payload.charged = form.charged
+      payload.charged = {
+        ...form.charged,
+        dice: form.charged_dice,
+        bonuses: form.charged_bonuses,
+      }
     }
     payload.damage_protection = form.damage_protection
     payload.buildup_protection = form.buildup_protection
