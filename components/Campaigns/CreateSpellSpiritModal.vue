@@ -103,12 +103,15 @@
         <!-- Spell Dice -->
         <h4 class="form-subsection-title">Spell Dice</h4>
         <div v-for="(d, i) in form.dice" :key="'sdice-'+i" class="repeatable-row">
+          <label class="row-label">Type:</label>
           <select v-model="d.type" class="form-input-sm">
             <option v-for="et in elementTypes" :key="et" :value="et">{{ et }}</option>
           </select>
-          <input v-model.number="d.count" type="number" class="form-input-sm num-sm" placeholder="#" />
+          <label class="row-label">Count:</label>
+          <input v-model.number="d.count" type="number" class="form-input-sm num-sm" />
           <span class="dice-d">d</span>
-          <input v-model.number="d.value" type="number" class="form-input-sm num-sm" placeholder="6" />
+          <label class="row-label">Value:</label>
+          <input v-model.number="d.value" type="number" class="form-input-sm num-sm" />
           <button @click="form.dice.splice(i, 1)" class="btn-remove-row">X</button>
         </div>
         <button @click="form.dice.push({ type: 'MAGIC', count: 1, value: 6 })" class="btn-add-row">+ Add Die</button>
@@ -116,10 +119,12 @@
         <!-- Spell Bonuses -->
         <h4 class="form-subsection-title">Spell Bonuses</h4>
         <div v-for="(b, i) in form.bonuses" :key="'sbonus-'+i" class="repeatable-row">
+          <label class="row-label">Type:</label>
           <select v-model="b.type" class="form-input-sm">
             <option v-for="bt in bonusTypes" :key="bt" :value="bt">{{ bt }}</option>
           </select>
-          <input v-model.number="b.value" type="number" class="form-input-sm num-sm" placeholder="Value" />
+          <label class="row-label">Value:</label>
+          <input v-model.number="b.value" type="number" class="form-input-sm num-sm" />
           <button @click="form.bonuses.splice(i, 1)" class="btn-remove-row">X</button>
         </div>
         <button @click="form.bonuses.push({ type: 'MAX_HP', value: 0 })" class="btn-add-row">+ Add Bonus</button>
@@ -154,53 +159,184 @@
 
         <!-- Protection sections -->
         <h4 class="form-subsection-title">Damage Protections</h4>
-        <div v-for="(p, i) in form.damage_protection" :key="'dp-'+i" class="repeatable-row">
-          <select v-model="p.type" class="form-input-sm">
-            <option v-for="dt in damageTypes" :key="dt" :value="dt">{{ dt }}</option>
-          </select>
-          <input v-model.number="p.flat" type="number" class="form-input-sm num-sm" placeholder="Flat" />
-          <input v-model.number="p.tiers" type="number" class="form-input-sm num-sm" placeholder="Tiers" />
-          <input v-model.number="p.duration_turns" type="number" class="form-input-sm num-sm" placeholder="Turns" />
-          <button @click="form.damage_protection.splice(i, 1)" class="btn-remove-row">X</button>
+        <div v-for="(p, i) in form.damage_protection" :key="'dp-'+i" class="protection-block">
+          <div class="protection-block-header">
+            <span class="protection-block-label">Damage Protection #{{ i + 1 }}</span>
+            <button @click="form.damage_protection.splice(i, 1)" class="btn-remove-row">X</button>
+          </div>
+          <div class="protection-grid">
+            <div class="form-group">
+              <label>Type</label>
+              <select v-model="p.type" class="form-input">
+                <option v-for="dt in damageTypes" :key="dt" :value="dt">{{ dt }}</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Tiers</label>
+              <input v-model.number="p.tiers" type="number" min="0" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label>Flat</label>
+              <input v-model.number="p.flat" type="number" min="0" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label>Dice Count</label>
+              <input v-model.number="p.dice_count" type="number" min="0" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label>Dice Value</label>
+              <input v-model.number="p.dice_value" type="number" min="0" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label>Percentage</label>
+              <input v-model.number="p.percentage" type="number" min="0" max="100" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label>% Timing</label>
+              <select v-model="p.percentage_timing" class="form-input">
+                <option value="INITIAL">Before Reductions</option>
+                <option value="FINAL">After Reductions</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Duration (Turns)</label>
+              <input v-model.number="p.duration_turns" type="number" min="0" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label>Duration (Attacks)</label>
+              <input v-model.number="p.duration_attacks" type="number" min="0" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label>Stacking</label>
+              <select v-model="p.stacking" class="form-input">
+                <option value="APPEND">Append</option>
+                <option value="OVERWRITE">Overwrite</option>
+              </select>
+            </div>
+          </div>
+          <div class="checkbox-row">
+            <label class="checkbox-label"><input type="checkbox" v-model="p.apply_to_caster" /> Apply to Caster</label>
+            <label class="checkbox-label"><input type="checkbox" v-model="p.apply_to_target" /> Apply to Target</label>
+          </div>
         </div>
         <button @click="form.damage_protection.push({ type: 'PHYSICAL', flat: 0, tiers: 0, dice_count: 0, dice_value: 0, percentage: 0, percentage_timing: 'INITIAL', duration_turns: 0, duration_attacks: 0, apply_to_caster: false, apply_to_target: true, stacking: 'APPEND', scaling_source: {} })" class="btn-add-row">+ Add Damage Protection</button>
 
         <h4 class="form-subsection-title">Buildup Protections</h4>
-        <div v-for="(p, i) in form.buildup_protection" :key="'bp-'+i" class="repeatable-row">
-          <select v-model="p.type" class="form-input-sm">
-            <option v-for="bt in buildupTypes" :key="bt" :value="bt">{{ bt }}</option>
-          </select>
-          <input v-model.number="p.flat" type="number" class="form-input-sm num-sm" placeholder="Flat" />
-          <input v-model.number="p.duration_turns" type="number" class="form-input-sm num-sm" placeholder="Turns" />
-          <button @click="form.buildup_protection.splice(i, 1)" class="btn-remove-row">X</button>
+        <div v-for="(p, i) in form.buildup_protection" :key="'bp-'+i" class="protection-block">
+          <div class="protection-block-header">
+            <span class="protection-block-label">Buildup Protection #{{ i + 1 }}</span>
+            <button @click="form.buildup_protection.splice(i, 1)" class="btn-remove-row">X</button>
+          </div>
+          <div class="protection-grid">
+            <div class="form-group">
+              <label>Type</label>
+              <select v-model="p.type" class="form-input">
+                <option v-for="bt in buildupTypes" :key="bt" :value="bt">{{ bt }}</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Flat</label>
+              <input v-model.number="p.flat" type="number" min="0" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label>Dice Count</label>
+              <input v-model.number="p.dice_count" type="number" min="0" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label>Dice Value</label>
+              <input v-model.number="p.dice_value" type="number" min="0" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label>Percentage</label>
+              <input v-model.number="p.percentage" type="number" min="0" max="100" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label>% Timing</label>
+              <select v-model="p.percentage_timing" class="form-input">
+                <option value="INITIAL">Before Reductions</option>
+                <option value="FINAL">After Reductions</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Duration (Turns)</label>
+              <input v-model.number="p.duration_turns" type="number" min="0" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label>Duration (Attacks)</label>
+              <input v-model.number="p.duration_attacks" type="number" min="0" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label>Stacking</label>
+              <select v-model="p.stacking" class="form-input">
+                <option value="APPEND">Append</option>
+                <option value="OVERWRITE">Overwrite</option>
+              </select>
+            </div>
+          </div>
+          <div class="checkbox-row">
+            <label class="checkbox-label"><input type="checkbox" v-model="p.apply_to_caster" /> Apply to Caster</label>
+            <label class="checkbox-label"><input type="checkbox" v-model="p.apply_to_target" /> Apply to Target</label>
+          </div>
         </div>
         <button @click="form.buildup_protection.push({ type: 'BLEED', flat: 0, dice_count: 0, dice_value: 0, percentage: 0, percentage_timing: 'INITIAL', duration_turns: 0, duration_attacks: 0, apply_to_caster: false, apply_to_target: true, stacking: 'APPEND', scaling_source: {} })" class="btn-add-row">+ Add Buildup Protection</button>
 
         <h4 class="form-subsection-title">Condition Protections</h4>
-        <div v-for="(p, i) in form.condition_protection" :key="'cp-'+i" class="repeatable-row">
-          <select v-model="p.condition" class="form-input-sm">
-            <option v-for="ct in conditionTypes" :key="ct" :value="ct">{{ ct }}</option>
-          </select>
-          <input v-model.number="p.duration_turns" type="number" class="form-input-sm num-sm" placeholder="Turns" />
-          <button @click="form.condition_protection.splice(i, 1)" class="btn-remove-row">X</button>
+        <div v-for="(p, i) in form.condition_protection" :key="'cp-'+i" class="protection-block">
+          <div class="protection-block-header">
+            <span class="protection-block-label">Condition Protection #{{ i + 1 }}</span>
+            <button @click="form.condition_protection.splice(i, 1)" class="btn-remove-row">X</button>
+          </div>
+          <div class="protection-grid">
+            <div class="form-group">
+              <label>Condition</label>
+              <select v-model="p.condition" class="form-input">
+                <option v-for="ct in conditionTypes" :key="ct" :value="ct">{{ ct }}</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Duration (Turns)</label>
+              <input v-model.number="p.duration_turns" type="number" min="0" class="form-input" />
+            </div>
+          </div>
+          <div class="checkbox-row">
+            <label class="checkbox-label"><input type="checkbox" v-model="p.apply_to_caster" /> Apply to Caster</label>
+            <label class="checkbox-label"><input type="checkbox" v-model="p.apply_to_target" /> Apply to Target</label>
+          </div>
         </div>
         <button @click="form.condition_protection.push({ condition: 'GRAPPLED', duration_turns: 0, apply_to_caster: false, apply_to_target: true })" class="btn-add-row">+ Add Condition Protection</button>
 
         <h4 class="form-subsection-title">Reduce Buildups</h4>
-        <div v-for="(r, i) in form.reduce_buildup" :key="'rb-'+i" class="repeatable-row">
-          <select v-model="r.buildup_type" class="form-input-sm">
-            <option v-for="bt in buildupTypes" :key="bt" :value="bt">{{ bt }}</option>
-          </select>
-          <input v-model.number="r.dice_count" type="number" class="form-input-sm num-sm" placeholder="#" />
-          <span class="dice-d">d</span>
-          <input v-model.number="r.dice_value" type="number" class="form-input-sm num-sm" placeholder="4" />
-          <input v-model.number="r.flat_bonus" type="number" class="form-input-sm num-sm" placeholder="Flat" />
-          <button @click="form.reduce_buildup.splice(i, 1)" class="btn-remove-row">X</button>
+        <div v-for="(r, i) in form.reduce_buildup" :key="'rb-'+i" class="protection-block">
+          <div class="protection-block-header">
+            <span class="protection-block-label">Reduce Buildup #{{ i + 1 }}</span>
+            <button @click="form.reduce_buildup.splice(i, 1)" class="btn-remove-row">X</button>
+          </div>
+          <div class="protection-grid">
+            <div class="form-group">
+              <label>Buildup Type</label>
+              <select v-model="r.buildup_type" class="form-input">
+                <option v-for="bt in buildupTypes" :key="bt" :value="bt">{{ bt }}</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Dice Count</label>
+              <input v-model.number="r.dice_count" type="number" min="0" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label>Dice Value</label>
+              <input v-model.number="r.dice_value" type="number" min="0" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label>Flat Bonus</label>
+              <input v-model.number="r.flat_bonus" type="number" min="0" class="form-input" />
+            </div>
+          </div>
         </div>
         <button @click="form.reduce_buildup.push({ buildup_type: 'BLEED', dice_count: 0, dice_value: 0, flat_bonus: 0, scaling_source: {} })" class="btn-add-row">+ Add Reduce Buildup</button>
 
         <h4 class="form-subsection-title">Cure Conditions</h4>
         <div v-for="(c, i) in form.cure_conditions" :key="'cc-'+i" class="repeatable-row">
+          <label class="row-label">Condition:</label>
           <select v-model="c.condition" class="form-input-sm">
             <option v-for="ct in curableConditions" :key="ct" :value="ct">{{ ct }}</option>
           </select>
@@ -210,6 +346,7 @@
 
         <h4 class="form-subsection-title">Cure Effects</h4>
         <div v-for="(c, i) in form.cure_effects" :key="'ce-'+i" class="repeatable-row">
+          <label class="row-label">Effect:</label>
           <select v-model="c.effect_type" class="form-input-sm">
             <option v-for="et in statusEffects" :key="et" :value="et">{{ et }}</option>
           </select>
@@ -301,65 +438,95 @@
         <!-- Spirit Dice -->
         <h4 class="form-subsection-title">Spirit Dice</h4>
         <div v-for="(d, i) in form.dice" :key="'spdice-'+i" class="repeatable-row">
+          <label class="row-label">Type:</label>
           <select v-model="d.type" class="form-input-sm">
             <option v-for="et in elementTypes" :key="et" :value="et">{{ et }}</option>
           </select>
-          <input v-model.number="d.count" type="number" class="form-input-sm num-sm" placeholder="#" />
+          <label class="row-label">Count:</label>
+          <input v-model.number="d.count" type="number" class="form-input-sm num-sm" />
           <span class="dice-d">d</span>
-          <input v-model.number="d.value" type="number" class="form-input-sm num-sm" placeholder="6" />
+          <label class="row-label">Value:</label>
+          <input v-model.number="d.value" type="number" class="form-input-sm num-sm" />
           <button @click="form.dice.splice(i, 1)" class="btn-remove-row">X</button>
         </div>
         <button @click="form.dice.push({ type: 'PHYSICAL', count: 1, value: 6 })" class="btn-add-row">+ Add Die</button>
 
-        <!-- Same protection sections as spell -->
+        <!-- Spirit uses same protection layout as spell -->
         <h4 class="form-subsection-title">Damage Protections</h4>
-        <div v-for="(p, i) in form.damage_protection" :key="'spdp-'+i" class="repeatable-row">
-          <select v-model="p.type" class="form-input-sm">
-            <option v-for="dt in damageTypes" :key="dt" :value="dt">{{ dt }}</option>
-          </select>
-          <input v-model.number="p.flat" type="number" class="form-input-sm num-sm" placeholder="Flat" />
-          <input v-model.number="p.tiers" type="number" class="form-input-sm num-sm" placeholder="Tiers" />
-          <input v-model.number="p.duration_turns" type="number" class="form-input-sm num-sm" placeholder="Turns" />
-          <button @click="form.damage_protection.splice(i, 1)" class="btn-remove-row">X</button>
+        <div v-for="(p, i) in form.damage_protection" :key="'spdp-'+i" class="protection-block">
+          <div class="protection-block-header">
+            <span class="protection-block-label">Damage Protection #{{ i + 1 }}</span>
+            <button @click="form.damage_protection.splice(i, 1)" class="btn-remove-row">X</button>
+          </div>
+          <div class="protection-grid">
+            <div class="form-group"><label>Type</label><select v-model="p.type" class="form-input"><option v-for="dt in damageTypes" :key="dt" :value="dt">{{ dt }}</option></select></div>
+            <div class="form-group"><label>Tiers</label><input v-model.number="p.tiers" type="number" min="0" class="form-input" /></div>
+            <div class="form-group"><label>Flat</label><input v-model.number="p.flat" type="number" min="0" class="form-input" /></div>
+            <div class="form-group"><label>Dice Count</label><input v-model.number="p.dice_count" type="number" min="0" class="form-input" /></div>
+            <div class="form-group"><label>Dice Value</label><input v-model.number="p.dice_value" type="number" min="0" class="form-input" /></div>
+            <div class="form-group"><label>Percentage</label><input v-model.number="p.percentage" type="number" min="0" max="100" class="form-input" /></div>
+            <div class="form-group"><label>% Timing</label><select v-model="p.percentage_timing" class="form-input"><option value="INITIAL">Before Reductions</option><option value="FINAL">After Reductions</option></select></div>
+            <div class="form-group"><label>Duration (Turns)</label><input v-model.number="p.duration_turns" type="number" min="0" class="form-input" /></div>
+            <div class="form-group"><label>Duration (Attacks)</label><input v-model.number="p.duration_attacks" type="number" min="0" class="form-input" /></div>
+            <div class="form-group"><label>Stacking</label><select v-model="p.stacking" class="form-input"><option value="APPEND">Append</option><option value="OVERWRITE">Overwrite</option></select></div>
+          </div>
+          <div class="checkbox-row"><label class="checkbox-label"><input type="checkbox" v-model="p.apply_to_caster" /> Apply to Caster</label><label class="checkbox-label"><input type="checkbox" v-model="p.apply_to_target" /> Apply to Target</label></div>
         </div>
         <button @click="form.damage_protection.push({ type: 'PHYSICAL', flat: 0, tiers: 0, dice_count: 0, dice_value: 0, percentage: 0, percentage_timing: 'INITIAL', duration_turns: 0, duration_attacks: 0, apply_to_caster: false, apply_to_target: true, stacking: 'APPEND', scaling_source: {} })" class="btn-add-row">+ Add Damage Protection</button>
 
         <h4 class="form-subsection-title">Buildup Protections</h4>
-        <div v-for="(p, i) in form.buildup_protection" :key="'spbp-'+i" class="repeatable-row">
-          <select v-model="p.type" class="form-input-sm">
-            <option v-for="bt in buildupTypes" :key="bt" :value="bt">{{ bt }}</option>
-          </select>
-          <input v-model.number="p.flat" type="number" class="form-input-sm num-sm" placeholder="Flat" />
-          <input v-model.number="p.duration_turns" type="number" class="form-input-sm num-sm" placeholder="Turns" />
-          <button @click="form.buildup_protection.splice(i, 1)" class="btn-remove-row">X</button>
+        <div v-for="(p, i) in form.buildup_protection" :key="'spbp-'+i" class="protection-block">
+          <div class="protection-block-header">
+            <span class="protection-block-label">Buildup Protection #{{ i + 1 }}</span>
+            <button @click="form.buildup_protection.splice(i, 1)" class="btn-remove-row">X</button>
+          </div>
+          <div class="protection-grid">
+            <div class="form-group"><label>Type</label><select v-model="p.type" class="form-input"><option v-for="bt in buildupTypes" :key="bt" :value="bt">{{ bt }}</option></select></div>
+            <div class="form-group"><label>Flat</label><input v-model.number="p.flat" type="number" min="0" class="form-input" /></div>
+            <div class="form-group"><label>Dice Count</label><input v-model.number="p.dice_count" type="number" min="0" class="form-input" /></div>
+            <div class="form-group"><label>Dice Value</label><input v-model.number="p.dice_value" type="number" min="0" class="form-input" /></div>
+            <div class="form-group"><label>Percentage</label><input v-model.number="p.percentage" type="number" min="0" max="100" class="form-input" /></div>
+            <div class="form-group"><label>% Timing</label><select v-model="p.percentage_timing" class="form-input"><option value="INITIAL">Before Reductions</option><option value="FINAL">After Reductions</option></select></div>
+            <div class="form-group"><label>Duration (Turns)</label><input v-model.number="p.duration_turns" type="number" min="0" class="form-input" /></div>
+            <div class="form-group"><label>Duration (Attacks)</label><input v-model.number="p.duration_attacks" type="number" min="0" class="form-input" /></div>
+            <div class="form-group"><label>Stacking</label><select v-model="p.stacking" class="form-input"><option value="APPEND">Append</option><option value="OVERWRITE">Overwrite</option></select></div>
+          </div>
+          <div class="checkbox-row"><label class="checkbox-label"><input type="checkbox" v-model="p.apply_to_caster" /> Apply to Caster</label><label class="checkbox-label"><input type="checkbox" v-model="p.apply_to_target" /> Apply to Target</label></div>
         </div>
         <button @click="form.buildup_protection.push({ type: 'BLEED', flat: 0, dice_count: 0, dice_value: 0, percentage: 0, percentage_timing: 'INITIAL', duration_turns: 0, duration_attacks: 0, apply_to_caster: false, apply_to_target: true, stacking: 'APPEND', scaling_source: {} })" class="btn-add-row">+ Add Buildup Protection</button>
 
         <h4 class="form-subsection-title">Condition Protections</h4>
-        <div v-for="(p, i) in form.condition_protection" :key="'spcp-'+i" class="repeatable-row">
-          <select v-model="p.condition" class="form-input-sm">
-            <option v-for="ct in conditionTypes" :key="ct" :value="ct">{{ ct }}</option>
-          </select>
-          <input v-model.number="p.duration_turns" type="number" class="form-input-sm num-sm" placeholder="Turns" />
-          <button @click="form.condition_protection.splice(i, 1)" class="btn-remove-row">X</button>
+        <div v-for="(p, i) in form.condition_protection" :key="'spcp-'+i" class="protection-block">
+          <div class="protection-block-header">
+            <span class="protection-block-label">Condition Protection #{{ i + 1 }}</span>
+            <button @click="form.condition_protection.splice(i, 1)" class="btn-remove-row">X</button>
+          </div>
+          <div class="protection-grid">
+            <div class="form-group"><label>Condition</label><select v-model="p.condition" class="form-input"><option v-for="ct in conditionTypes" :key="ct" :value="ct">{{ ct }}</option></select></div>
+            <div class="form-group"><label>Duration (Turns)</label><input v-model.number="p.duration_turns" type="number" min="0" class="form-input" /></div>
+          </div>
+          <div class="checkbox-row"><label class="checkbox-label"><input type="checkbox" v-model="p.apply_to_caster" /> Apply to Caster</label><label class="checkbox-label"><input type="checkbox" v-model="p.apply_to_target" /> Apply to Target</label></div>
         </div>
         <button @click="form.condition_protection.push({ condition: 'GRAPPLED', duration_turns: 0, apply_to_caster: false, apply_to_target: true })" class="btn-add-row">+ Add Condition Protection</button>
 
         <h4 class="form-subsection-title">Reduce Buildups</h4>
-        <div v-for="(r, i) in form.reduce_buildup" :key="'sprb-'+i" class="repeatable-row">
-          <select v-model="r.buildup_type" class="form-input-sm">
-            <option v-for="bt in buildupTypes" :key="bt" :value="bt">{{ bt }}</option>
-          </select>
-          <input v-model.number="r.dice_count" type="number" class="form-input-sm num-sm" placeholder="#" />
-          <span class="dice-d">d</span>
-          <input v-model.number="r.dice_value" type="number" class="form-input-sm num-sm" placeholder="4" />
-          <input v-model.number="r.flat_bonus" type="number" class="form-input-sm num-sm" placeholder="Flat" />
-          <button @click="form.reduce_buildup.splice(i, 1)" class="btn-remove-row">X</button>
+        <div v-for="(r, i) in form.reduce_buildup" :key="'sprb-'+i" class="protection-block">
+          <div class="protection-block-header">
+            <span class="protection-block-label">Reduce Buildup #{{ i + 1 }}</span>
+            <button @click="form.reduce_buildup.splice(i, 1)" class="btn-remove-row">X</button>
+          </div>
+          <div class="protection-grid">
+            <div class="form-group"><label>Buildup Type</label><select v-model="r.buildup_type" class="form-input"><option v-for="bt in buildupTypes" :key="bt" :value="bt">{{ bt }}</option></select></div>
+            <div class="form-group"><label>Dice Count</label><input v-model.number="r.dice_count" type="number" min="0" class="form-input" /></div>
+            <div class="form-group"><label>Dice Value</label><input v-model.number="r.dice_value" type="number" min="0" class="form-input" /></div>
+            <div class="form-group"><label>Flat Bonus</label><input v-model.number="r.flat_bonus" type="number" min="0" class="form-input" /></div>
+          </div>
         </div>
         <button @click="form.reduce_buildup.push({ buildup_type: 'BLEED', dice_count: 0, dice_value: 0, flat_bonus: 0, scaling_source: {} })" class="btn-add-row">+ Add Reduce Buildup</button>
 
         <h4 class="form-subsection-title">Cure Conditions</h4>
         <div v-for="(c, i) in form.cure_conditions" :key="'spcc-'+i" class="repeatable-row">
+          <label class="row-label">Condition:</label>
           <select v-model="c.condition" class="form-input-sm">
             <option v-for="ct in curableConditions" :key="ct" :value="ct">{{ ct }}</option>
           </select>
@@ -369,6 +536,7 @@
 
         <h4 class="form-subsection-title">Cure Effects</h4>
         <div v-for="(c, i) in form.cure_effects" :key="'spce-'+i" class="repeatable-row">
+          <label class="row-label">Effect:</label>
           <select v-model="c.effect_type" class="form-input-sm">
             <option v-for="et in statusEffects" :key="et" :value="et">{{ et }}</option>
           </select>
@@ -695,7 +863,60 @@ async function submitItem() {
   font-size: 0.85em;
 }
 
+select.form-input,
+select.form-input-sm {
+  background-color: #1a1a1e;
+}
+
+select.form-input option,
+select.form-input-sm option {
+  background: #1a1a1e;
+  color: #fff;
+}
+
 .num-sm { width: 3.5rem; text-align: center; }
+
+.row-label {
+  color: #888;
+  font-size: 0.8em;
+  white-space: nowrap;
+}
+
+.protection-block {
+  background: rgba(255, 255, 255, 0.02);
+  border: 0.0625rem solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.375rem;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.protection-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.protection-block-label {
+  color: #aaa;
+  font-size: 0.85em;
+  font-weight: 600;
+}
+
+.protection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.protection-grid .form-group {
+  margin-bottom: 0;
+}
+
+.protection-grid .form-group label {
+  font-size: 0.75em;
+}
 
 .dice-d {
   color: #888;
