@@ -5,6 +5,7 @@
 
 import type { StoredCharacter } from '~/mixins/characterStorage'
 import { useApi, type ApiResponse } from './useApi'
+import { useCompendiumStore } from '~/store/compendium'
 
 // API character format (normalized structure from Django)
 export interface ApiCharacter {
@@ -869,13 +870,32 @@ export function useCharacterApi() {
       // Companions
       companions: buildCompanionsFromApi(api.companions || []),
 
-      // Inventory
-      inventory: (api.inventory_items || []).map(item => ({
-        id: item.item_id,
-        name: item.item_name,
-        category: item.item_category,
-        Quantity: item.quantity
-      })),
+      // Inventory — hydrate from compendium to restore full item data
+      inventory: (api.inventory_items || []).map(item => {
+        const compendiumStore = useCompendiumStore()
+        let fullItem: any = null
+        switch (item.item_category) {
+          case 'weapon':
+            fullItem = compendiumStore.Weapons.find((w: any) => w.id === item.item_id)
+            break
+          case 'armor':
+            fullItem = compendiumStore.Armors.find((a: any) => a.id === item.item_id)
+            break
+          case 'ring':
+            fullItem = compendiumStore.Rings.find((r: any) => r.id === item.item_id)
+            break
+          case 'artifact':
+            fullItem = compendiumStore.Artifacts.find((a: any) => a.id === item.item_id)
+            break
+          default:
+            fullItem = compendiumStore.Items.find((i: any) => i.id === item.item_id)
+            break
+        }
+        if (fullItem) {
+          return { ...JSON.parse(JSON.stringify(fullItem)), category: item.item_category, Quantity: item.quantity }
+        }
+        return { id: item.item_id, name: item.item_name, category: item.item_category, Quantity: item.quantity }
+      }),
 
       created_at: api.created_at,
       last_played: api.last_played
