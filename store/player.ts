@@ -1291,9 +1291,7 @@ export const usePlayerStore = defineStore({
       this.Companions = activeChar.companions || []
 
       // Character image
-      if ((activeChar as any).character_image_path) {
-        this.CharacterImagePath = (activeChar as any).character_image_path
-      }
+      this.CharacterImagePath = (activeChar as any).character_image_path || ''
 
       // Level up state
       if ((activeChar as any).pending_level_up) {

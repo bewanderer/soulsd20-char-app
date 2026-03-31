@@ -17,6 +17,7 @@
         <select v-model="itemType" class="form-input" :disabled="isEditMode">
           <option value="weapon">Weapon</option>
           <option value="armor">Armor</option>
+          <option value="ring">Ring</option>
           <option value="artifact">Artifact</option>
           <option value="item">Item</option>
         </select>
@@ -307,6 +308,30 @@
         <button @click="form.bonuses.push({ type: 'MAX_HP', value: 0, is_innate: false })" class="btn-add-row">+ Add Bonus</button>
       </template>
 
+      <!-- ==================== RING FIELDS ==================== -->
+      <template v-if="itemType === 'ring'">
+        <div class="form-divider"></div>
+        <h3 class="form-section-title">Ring Properties</h3>
+
+        <div class="form-row">
+          <div class="form-group flex-1">
+            <label>Tier *</label>
+            <input v-model.number="form.tier" type="number" min="1" max="4" class="form-input" />
+          </div>
+        </div>
+
+        <!-- Bonuses -->
+        <h4 class="form-subsection-title">Bonuses</h4>
+        <div v-for="(b, i) in form.bonuses" :key="'rbonus-'+i" class="repeatable-row">
+          <select v-model="b.type" class="form-input-sm">
+            <option v-for="bt in bonusTypes" :key="bt" :value="bt">{{ bt }}</option>
+          </select>
+          <input v-model.number="b.value" type="number" class="form-input-sm num-sm" placeholder="Value" />
+          <button @click="form.bonuses.splice(i, 1)" class="btn-remove-row">X</button>
+        </div>
+        <button @click="form.bonuses.push({ type: 'MAX_HP', value: 0 })" class="btn-add-row">+ Add Bonus</button>
+      </template>
+
       <!-- ==================== ARTIFACT FIELDS ==================== -->
       <template v-if="itemType === 'artifact'">
         <div class="form-divider"></div>
@@ -435,7 +460,7 @@ const weaponSkills = computed(() => {
 })
 
 const itemTypeLabel = computed(() => {
-  const labels: Record<string, string> = { weapon: 'Weapon', armor: 'Armor', artifact: 'Artifact', item: 'Item' }
+  const labels: Record<string, string> = { weapon: 'Weapon', armor: 'Armor', ring: 'Ring', artifact: 'Artifact', item: 'Item' }
   return labels[itemType.value] || 'Item'
 })
 
@@ -491,6 +516,8 @@ const form = reactive({
   second_infusion: null as string | null,
   second_skill_primary: null as number | null,
   second_skill_secondary: null as number | null,
+  // Ring
+  tier: 1,
   // Armor
   armor_type: 'MEDIUM',
   // Item
@@ -559,6 +586,9 @@ async function submitItem() {
     payload.armor_type = form.armor_type
     payload.durability = form.durability
     payload.requirements = form.requirements
+    payload.bonuses = form.bonuses
+  } else if (itemType.value === 'ring') {
+    payload.tier = form.tier
     payload.bonuses = form.bonuses
   } else if (itemType.value === 'artifact') {
     payload.bonuses = form.bonuses

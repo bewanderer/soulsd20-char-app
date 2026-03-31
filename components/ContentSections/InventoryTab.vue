@@ -587,11 +587,13 @@ import * as imageUtils from '@/mixins/imageUtils'
 import { usePlayerStore } from '@/store/player'
 import { useCompendiumStore } from '~~/store/compendium'
 import { useApi } from '~/composables/useApi'
+import { useFoundrySync } from '~/composables/useFoundrySync'
 import CreateItemModal from '~/components/Campaigns/CreateItemModal.vue'
 
 const store = usePlayerStore()
 const compendiumStore = useCompendiumStore()
 const api = useApi()
+const foundrySync = useFoundrySync()
 
 // Custom item creation
 const showCreateItemModal = ref(false)
@@ -630,13 +632,25 @@ function selectCampaignAndCreate(campaignId: string) {
 function handleCustomItemCreated(item: any) {
   showCreateItemModal.value = false
   if (item) {
-    compendiumStore.createItem({
-      id: item.id,
-      name: item.name,
-      description: item.description || '',
-      category: item.type || 'misc',
-      Quantity: 0,
-    })
+    const itemType = item.type || 'misc'
+    switch (itemType) {
+      case 'weapon':
+        compendiumStore.Weapons.push(item)
+        break
+      case 'armor':
+        compendiumStore.Armors.push(item)
+        break
+      case 'ring':
+        compendiumStore.Rings.push(item)
+        break
+      case 'artifact':
+        compendiumStore.Artifacts.push(item)
+        break
+      default:
+        compendiumStore.Items.push(item)
+        break
+    }
+    foundrySync.send('campaign:compendium-updated', { itemType })
   }
 }
 

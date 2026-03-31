@@ -49,7 +49,8 @@ const MESSAGE_TYPES = {
   CHARACTER_REQUEST_LINKED: 'characters:request-linked',
   DAMAGE_APPLIED: 'combat:damage-applied',
   COMBAT_DATA_REQUEST: 'combat:request-data',
-  COMBAT_DATA_RESPONSE: 'combat:response-data'
+  COMBAT_DATA_RESPONSE: 'combat:response-data',
+  CAMPAIGN_COMPENDIUM_UPDATED: 'campaign:compendium-updated'
 }
 
 const HEARTBEAT_INTERVAL = 10000 // 10 seconds
@@ -185,6 +186,13 @@ function handleMessage(message: { type: string; data: Record<string, unknown> })
       if (linkedUuids && Array.isArray(linkedUuids)) {
         sendLinkedCharacters(linkedUuids)
       }
+      break
+
+    case MESSAGE_TYPES.CAMPAIGN_COMPENDIUM_UPDATED:
+      console.log('[Foundry Sync] Campaign compendium updated, refreshing...')
+      const compStore = useCompendiumStore()
+      compStore.isLoaded = false
+      compStore.getCompendium()
       break
 
     default:

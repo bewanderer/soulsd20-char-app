@@ -6,8 +6,15 @@
         Spells | Spirits | Weapon Skills
       </h1>
 
-      <div class="text-lg attunement-display" style="position: absolute; right: 1.5rem;">
-        Attunement: <span class="attunement-count">{{ attunedCount }}/{{ totalAttunementSlots }}</span>
+      <div class="header-right-controls" style="position: absolute; right: 1.5rem; display: flex; align-items: center; gap: 1rem;">
+        <button
+          v-if="characterCampaigns.length > 0"
+          @click="openCreateCustom"
+          class="btn-create-new"
+        >Create New</button>
+        <div class="text-lg attunement-display">
+          Attunement: <span class="attunement-count">{{ attunedCount }}/{{ totalAttunementSlots }}</span>
+        </div>
       </div>
     </div>
 
@@ -234,7 +241,7 @@
               </div>
               <div><strong>Attunement Cost:</strong> {{ getItemWithModifications(selectedItem).att_cost || 1 }}</div>
               <div><strong>AP Cost:</strong> {{ getItemWithModifications(selectedItem).ap || getItemWithModifications(selectedItem).cost_ap || 'N/A' }}</div>
-              <div><strong>FP Cost:</strong> {{ getItemWithModifications(selectedItem).cost_fp || 0 }}</div>
+              <div><strong>FP Cost:</strong> {{ getItemWithModifications(selectedItem).cost_fp || getItemWithModifications(selectedItem).fp || 0 }}</div>
               <div v-if="getItemWithModifications(selectedItem).is_slow"><span class="slow-action-indicator">Slow Action</span></div>
               <div class="mt-4"><strong>Description:</strong></div>
               <div>{{ getItemWithModifications(selectedItem).description }}</div>
@@ -413,14 +420,96 @@
       </div>
     </div>
   </div>
+
+  <!-- Campaign selector for create -->
+  <Teleport to="body">
+    <div v-if="showCampaignSelector" class="modal-overlay" @click.self="showCampaignSelector = false">
+      <div class="campaign-select-panel">
+        <h3 class="campaign-select-title">Select Campaign</h3>
+        <div v-for="c in characterCampaigns" :key="c.id" class="campaign-select-option" @click="selectCampaignAndCreate(c.id)">
+          {{ c.name }}
+        </div>
+        <div class="campaign-select-actions">
+          <button @click="showCampaignSelector = false" class="campaign-select-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+
+  <!-- Create Spell/Spirit/Weapon Skill Modal -->
+  <Teleport to="body">
+    <CreateSpellSpiritModal
+      v-if="showCreateModal && selectedCampaignId"
+      :campaign-id="selectedCampaignId"
+      :initial-type="createModalInitialType"
+      @close="showCreateModal = false"
+      @created="handleCustomCreated"
+    />
+  </Teleport>
 </template>
 
 <script setup lang="ts">
 import { usePlayerStore } from '@/store/player'
 import { useCompendiumStore } from '@/store/compendium'
+import { useApi } from '~/composables/useApi'
+import { useFoundrySync } from '~/composables/useFoundrySync'
+import CreateSpellSpiritModal from '~/components/Campaigns/CreateSpellSpiritModal.vue'
 
 const playerStore = usePlayerStore()
 const compendiumStore = useCompendiumStore()
+const api = useApi()
+const foundrySync = useFoundrySync()
+
+// Custom creation
+const showCreateModal = ref(false)
+const showCampaignSelector = ref(false)
+const characterCampaigns = ref<Array<{ id: string; name: string }>>([])
+const selectedCampaignId = ref<string | null>(null)
+const createModalInitialType = ref<'spell' | 'spirit' | 'weapon_skill'>('spell')
+
+// Fetch character's campaign assignments on mount
+onMounted(async () => {
+  if (playerStore.UUID) {
+    const response = await api.get<any>(`/api/characters/${playerStore.UUID}/`)
+    if (response.ok && response.data?.campaigns?.length > 0) {
+      characterCampaigns.value = response.data.campaigns
+      selectedCampaignId.value = response.data.campaigns[0].id
+    }
+  }
+})
+
+function openCreateCustom() {
+  if (activeTab.value === 'spells') createModalInitialType.value = 'spell'
+  else if (activeTab.value === 'spirits') createModalInitialType.value = 'spirit'
+  else createModalInitialType.value = 'weapon_skill'
+
+  if (characterCampaigns.value.length > 1) {
+    showCampaignSelector.value = true
+  } else if (characterCampaigns.value.length === 1) {
+    selectedCampaignId.value = characterCampaigns.value[0].id
+    showCreateModal.value = true
+  }
+}
+
+function selectCampaignAndCreate(campaignId: string) {
+  selectedCampaignId.value = campaignId
+  showCampaignSelector.value = false
+  showCreateModal.value = true
+}
+
+function handleCustomCreated(item: any, itemType: string) {
+  showCreateModal.value = false
+  if (item) {
+    if (itemType === 'spell') {
+      compendiumStore.Spells.push(item)
+    } else if (itemType === 'spirit') {
+      compendiumStore.Spirits.push(item)
+    } else if (itemType === 'weapon_skill') {
+      compendiumStore.WeaponSkills.push(item)
+    }
+    foundrySync.send('campaign:compendium-updated', { itemType })
+  }
+}
 
 const activeTab = ref<'spells' | 'spirits' | 'weaponskills'>('spells')
 const searchQuery = ref('')
@@ -974,6 +1063,79 @@ function saveModifications() {
 </script>
 
 <style scoped>
+/* Create New button */
+.btn-create-new {
+  padding: 0.4em 1em;
+  background: var(--color-btn-primary-border, rgba(180, 160, 60, 0.3));
+  border: 2px solid var(--color-gold-dim, #b4a03c);
+  border-radius: 0.375rem;
+  color: #fff;
+  font-weight: 600;
+  font-size: clamp(0.8rem, 1vw, 0.9rem);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-create-new:hover {
+  border-color: var(--color-gold-primary, #ffd700);
+  box-shadow: var(--shadow-gold-medium, 0 0 10px rgba(255, 215, 0, 0.2));
+}
+
+/* Campaign selector modal */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+}
+
+.campaign-select-panel {
+  background: rgba(25, 25, 30, 0.98);
+  border: 0.0625rem solid rgba(255, 215, 0, 0.2);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  min-width: 20rem;
+}
+
+.campaign-select-title {
+  color: var(--color-gold-primary, #ffd700);
+  margin: 0 0 1rem 0;
+}
+
+.campaign-select-option {
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 0.0625rem solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.375rem;
+  color: #eee;
+  cursor: pointer;
+  margin-bottom: 0.5rem;
+  transition: all 0.2s;
+}
+
+.campaign-select-option:hover {
+  border-color: var(--color-gold-primary, #ffd700);
+  background: rgba(255, 215, 0, 0.05);
+}
+
+.campaign-select-actions {
+  margin-top: 0.75rem;
+  text-align: right;
+}
+
+.campaign-select-cancel {
+  padding: 0.5em 1.25em;
+  background: transparent;
+  border: 0.0625rem solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.375rem;
+  color: #ccc;
+  cursor: pointer;
+}
+
 /* Header styling */
 .sticky.top-0.p-4.w-full.flex.justify-center.items-center {
   background: var(--color-bg-secondary);
