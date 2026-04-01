@@ -971,24 +971,31 @@ select.form-input-sm option {
 }
 
 .btn-remove-row {
-  background: rgba(255, 80, 80, 0.15);
-  border: 0.0625rem solid rgba(255, 80, 80, 0.3);
-  color: #ff6b6b;
   padding: 0.25em 0.5em;
+  background: transparent;
+  border: 0.0625rem solid rgba(255, 107, 107, 0.3);
   border-radius: 0.25rem;
+  color: #ff8585;
+  font-size: 0.75em;
   cursor: pointer;
-  font-size: 0.8em;
+  flex-shrink: 0;
 }
 
 .btn-add-row {
-  background: rgba(100, 200, 100, 0.1);
-  border: 0.0625rem solid rgba(100, 200, 100, 0.25);
-  color: #8bd88b;
-  padding: 0.375em 0.75em;
+  padding: 0.25em 0.75em;
+  background: transparent;
+  border: 0.0625rem dashed rgba(255, 215, 0, 0.3);
   border-radius: 0.25rem;
+  color: var(--color-gold-primary, #ffd700);
+  font-size: 0.8em;
   cursor: pointer;
-  font-size: 0.85em;
-  margin-bottom: 0.5rem;
+  transition: all 0.2s;
+  margin-top: 0.25em;
+}
+
+.btn-add-row:hover {
+  background: rgba(255, 215, 0, 0.05);
+  border-color: rgba(255, 215, 0, 0.5);
 }
 
 .checkbox-row {
