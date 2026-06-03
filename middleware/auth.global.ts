@@ -6,12 +6,17 @@
  */
 import { useApi } from '~/composables/useApi'
 
+// Patreon callback runs the OAuth code-for-token exchange; it has no stored token until that completes.
+const PUBLIC_PATHS = new Set([
+  '/login',
+  '/auth/patreon/callback'
+])
+
 export default defineNuxtRouteMiddleware((to) => {
   // Only run on client side
   if (process.server) return
 
-  // Allow access to login page without authentication
-  if (to.path === '/login') {
+  if (PUBLIC_PATHS.has(to.path)) {
     return
   }
 

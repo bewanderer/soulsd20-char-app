@@ -34,7 +34,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { setActiveCharacter, getAllCharacters, saveCharacterList } from '~/mixins/characterStorage'
 import { usePlayerStore } from '~/store/player'
@@ -42,6 +42,7 @@ import { useCompendiumStore } from '~/store/compendium'
 import { waitForInitialSync } from '~/composables/useCharacterSync'
 import { useCharacterApi } from '~/composables/useCharacterApi'
 import { useAuth } from '~/composables/useAuth'
+import { foundrySyncApi } from '~/plugins/foundry-sync.client'
 
 // Import tab components
 import CharacterTab from '~/components/ContentSections/Character/CharacterTab.vue'
@@ -175,6 +176,10 @@ onMounted(async () => {
   // Setup auto-save AFTER character is loaded
   playerStore.setupAutoSave()
 
+  // Subscribe to live-collab updates for this character. The relay routes
+  // app:character-update messages only to clients holding this subscription.
+  foundrySyncApi.subscribeToCharacter(uuid)
+
   // Check for Level 0 character (incomplete character creation)
   if (playerStore.Level === 0 && !playerStore.PendingLevelUp?.active) {
     playerStore.initializeLevel1LevelUp()
@@ -182,6 +187,13 @@ onMounted(async () => {
 
   console.log(`[SD20 Nav] Character page fully loaded: "${playerStore.Name}" (Level ${playerStore.Level})`)
   isLoading.value = false
+})
+
+onUnmounted(() => {
+  const uuid = route.params.uuid as string
+  if (uuid) {
+    foundrySyncApi.unsubscribeFromCharacter(uuid)
+  }
 })
 </script>
 

@@ -103,9 +103,18 @@ export function useAuth() {
         }
 
         // Initialize character sync after login
-        const { $initCharacterSync } = useNuxtApp()
+        const nuxtApp = useNuxtApp()
+        const { $initCharacterSync, $foundrySync } = nuxtApp
         if ($initCharacterSync) {
           await ($initCharacterSync as () => Promise<void>)()
+        }
+        if ($foundrySync && typeof ($foundrySync as any).connect === 'function') {
+          try {
+            ($foundrySync as any).disconnect?.()
+            ;($foundrySync as any).connect()
+          } catch (err) {
+            console.warn('[SD20 Auth] foundrySync reconnect failed', err)
+          }
         }
 
         return true
@@ -200,9 +209,18 @@ export function useAuth() {
         }
 
         // Initialize character sync after Patreon login
-        const { $initCharacterSync } = useNuxtApp()
+        const nuxtApp = useNuxtApp()
+        const { $initCharacterSync, $foundrySync } = nuxtApp
         if ($initCharacterSync) {
           await ($initCharacterSync as () => Promise<void>)()
+        }
+        if ($foundrySync && typeof ($foundrySync as any).connect === 'function') {
+          try {
+            ($foundrySync as any).disconnect?.()
+            ;($foundrySync as any).connect()
+          } catch (err) {
+            console.warn('[SD20 Auth] foundrySync reconnect failed', err)
+          }
         }
 
         return true
@@ -295,9 +313,17 @@ export function useAuth() {
 
     // Reset character sync state
     console.log('[SD20 Auth] logout() resetting character sync state')
-    const { $resetCharacterSync } = useNuxtApp()
+    const nuxtApp = useNuxtApp()
+    const { $resetCharacterSync, $foundrySync } = nuxtApp
     if ($resetCharacterSync) {
       ($resetCharacterSync as () => void)()
+    }
+    if ($foundrySync && typeof ($foundrySync as any).disconnect === 'function') {
+      try {
+        ($foundrySync as any).disconnect()
+      } catch (err) {
+        console.warn('[SD20 Auth] foundrySync disconnect failed', err)
+      }
     }
 
     // Clear campaign state if available
@@ -391,6 +417,16 @@ export function useAuth() {
       user.value = persisted
     } else {
       console.log('[SD20 Auth] initAuth() no persisted user found')
+    }
+
+    // Listen for global 401 events so any endpoint returning Unauthorized
+    // triggers a full logout. Registered once per page lifetime.
+    if (typeof window !== 'undefined' && !(window as any).__sd20_auth_expired_bound__) {
+      (window as any).__sd20_auth_expired_bound__ = true
+      window.addEventListener('sd20:auth-expired', () => {
+        console.warn('[SD20 Auth] auth-expired event received - logging out')
+        logout()
+      })
     }
 
     // Then verify with server

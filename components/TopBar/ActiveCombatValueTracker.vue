@@ -237,6 +237,7 @@ function drinkFlask(type: string) {
     playerStore.UserInputValues.CurrentFP = Math.min(playerStore.UserInputValues.CurrentFP + fpFlaskRestoreAmount.value, maxFp.value)
     playerStore.UserInputValues.FpFlask--
   }
+  playerStore.save()
 }
 
 function addFlask(type: string) {

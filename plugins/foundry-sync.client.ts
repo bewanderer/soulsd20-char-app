@@ -1,7 +1,7 @@
 // Foundry VTT WebSocket sync plugin
 // Connects to relay server for Foundry communication
 
-import { getActiveCharacter, getAllCharacters, type StoredCharacter } from '@/mixins/characterStorage'
+import { getActiveCharacter, getAllCharacters, onCharacterSync, type StoredCharacter } from '@/mixins/characterStorage'
 import { statMod, skillModBonusFromStats } from '@/mixins/utils'
 import { useCompendiumStore } from '@/store/compendium'
 import { calculateWeaponScaling, calculateSpellScaling } from '@/mixins/combatUtils'
@@ -50,8 +50,17 @@ const MESSAGE_TYPES = {
   DAMAGE_APPLIED: 'combat:damage-applied',
   COMBAT_DATA_REQUEST: 'combat:request-data',
   COMBAT_DATA_RESPONSE: 'combat:response-data',
-  CAMPAIGN_COMPENDIUM_UPDATED: 'campaign:compendium-updated'
+  CAMPAIGN_COMPENDIUM_UPDATED: 'campaign:compendium-updated',
+  APP_SUBSCRIBE_CHARACTER: 'app:subscribe-character',
+  APP_UNSUBSCRIBE_CHARACTER: 'app:unsubscribe-character',
+  APP_CHARACTER_UPDATE: 'app:character-update'
 }
+
+// Stable per-tab origin used to suppress echo when our own broadcast comes back
+// through the relay. (Belt-and-suspenders: the relay already excludes the sender.)
+const APP_ORIGIN_ID = (typeof window !== 'undefined'
+  ? ((window as any).__sd20_origin_id__ ||= `app-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`)
+  : 'app-server')
 
 const HEARTBEAT_INTERVAL = 10000 // 10 seconds
 
@@ -93,6 +102,33 @@ function getState(): ConnectionState {
 function formatWeaponType(type: string | null | undefined): string {
   if (!type) return ''
   return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
+// Foundry only knows what the App sends. When localStorage holds attunement
+// stubs (loaded into Pinia before the compendium was ready and then persisted),
+// re-hydrate from the in-memory compendium right before transmitting so the
+// receiver never sees `{ skill_id: X, slot_number: Y }` shaped entries that
+// turn into "undefined" macros downstream.
+function rehydrateAttuned(items: any[] | undefined, compendiumList: any[] | undefined, idKey: string): any[] {
+  if (!Array.isArray(items) || items.length === 0) return []
+  if (!Array.isArray(compendiumList) || compendiumList.length === 0) {
+    return items.filter(item => item && item.name)
+  }
+  const result: any[] = []
+  for (const item of items) {
+    if (!item) continue
+    if (item.name && item.dice !== undefined) {
+      result.push(item)
+      continue
+    }
+    const id = item[idKey] ?? item.id
+    if (id == null) continue
+    const found = compendiumList.find(c => c.id === id)
+    if (found) {
+      result.push({ ...found, slot_number: item.slot_number })
+    }
+  }
+  return result
 }
 
 // Calculate maxHP from stored character data
@@ -152,6 +188,10 @@ function handleMessage(message: { type: string; data: Record<string, unknown> })
   const state = getState()
 
   switch (message.type) {
+    case MESSAGE_TYPES.APP_CHARACTER_UPDATE:
+      handleIncomingAppUpdate(message.data)
+      break
+
     case MESSAGE_TYPES.FOUNDRY_READY:
       console.log('[Foundry Sync] Foundry is ready')
       state.isFoundryConnected = true
@@ -347,14 +387,20 @@ function buildCharacterPayload(character: StoredCharacter) {
     }
   }
 
+  // Re-hydrate attunement stubs from the live compendium so any localStorage
+  // entries that were saved before the compendium loaded do not propagate.
+  const hydratedSpells = rehydrateAttuned(character.attuned_spells, compendiumStore.Spells, 'spell_id')
+  const hydratedSpirits = rehydrateAttuned(character.attuned_spirits, compendiumStore.Spirits, 'spirit_id')
+  const hydratedWeaponSkills = rehydrateAttuned(character.attuned_weapon_skills, compendiumStore.WeaponSkills, 'skill_id')
+
   // Attuned abilities with scaling bonus for App display (using primary catalyst)
   // Foundry will also use the catalysts array to generate per-catalyst macros
-  const attunedSpellsWithScaling = (character.attuned_spells || []).map((spell: any) => ({
+  const attunedSpellsWithScaling = hydratedSpells.map((spell: any) => ({
     ...spell,
     scalingBonus: primaryCastingImplement ? calculateSpellScaling(spell, primaryCastingImplement) : 0
   }))
 
-  const attunedSpiritsWithScaling = (character.attuned_spirits || []).map((spirit: any) => ({
+  const attunedSpiritsWithScaling = hydratedSpirits.map((spirit: any) => ({
     ...spirit,
     scalingBonus: primaryCastingImplement ? calculateSpellScaling(spirit, primaryCastingImplement) : 0
   }))
@@ -368,6 +414,10 @@ function buildCharacterPayload(character: StoredCharacter) {
     skills: skillMods,
     knowledge: knowledgeMods,
 
+    maxHP: calculateMaxHP(character),
+    maxFP: calculateMaxFP(character),
+    maxAP: calculateMaxAP(character),
+
     // Equipment
     mainHand: mainHandData,
     offHand: offHandData,
@@ -379,7 +429,7 @@ function buildCharacterPayload(character: StoredCharacter) {
     // Attuned abilities (with primary catalyst scaling for App display)
     attuned_spells: attunedSpellsWithScaling,
     attuned_spirits: attunedSpiritsWithScaling,
-    attuned_weapon_skills: character.attuned_weapon_skills || [],
+    attuned_weapon_skills: hydratedWeaponSkills,
 
     // Resistances and status bonuses
     bonus_resistances: character.bonus_resistances,
@@ -472,8 +522,41 @@ function buildWeaponData(
   return weaponData
 }
 
+// Foundry's damageSystem.getActorResistances reads the {primary, bonus} shape;
+// other consumers read the raw bonus_resistances. The combat payload ships both.
+function buildCombatResistances(character: StoredCharacter) {
+  const base = character.bonus_resistances
+  const temp = character.bonus_resistances_temp
+  return {
+    primary: {
+      Physical: base?.Physical || 0,
+      Magic: base?.Magic || 0,
+      Fire: base?.Fire || 0,
+      Lightning: base?.Lightning || 0,
+      Dark: base?.Dark || 0,
+      FlatPhysical: base?.FlatPhysical || 0,
+      FlatMagic: base?.FlatMagic || 0,
+      FlatFire: base?.FlatFire || 0,
+      FlatLightning: base?.FlatLightning || 0,
+      FlatDark: base?.FlatDark || 0
+    },
+    bonus: {
+      active: character.bonus_resistances_active || false,
+      Physical: temp?.Physical || 0,
+      Magic: temp?.Magic || 0,
+      Fire: temp?.Fire || 0,
+      Lightning: temp?.Lightning || 0,
+      Dark: temp?.Dark || 0,
+      FlatPhysical: temp?.FlatPhysical || 0,
+      FlatMagic: temp?.FlatMagic || 0,
+      FlatFire: temp?.FlatFire || 0,
+      FlatLightning: temp?.FlatLightning || 0,
+      FlatDark: temp?.FlatDark || 0
+    }
+  }
+}
+
 function sendCombatData(uuid: string, actorId?: string) {
-  // Try to find the character by UUID (not just active character)
   const allChars = getAllCharacters()
   const character = allChars.characters.find(c => c.uuid === uuid)
 
@@ -482,179 +565,30 @@ function sendCombatData(uuid: string, actorId?: string) {
     return
   }
 
-  // Get compendium data (already loaded in memory)
-  const compendiumStore = useCompendiumStore()
-  const compendiumWeapons = compendiumStore.Weapons
+  const payload = buildCharacterPayload(character)
 
-  // Get two-handing settings
-  const twoHandingMainHand = character.combat_settings?.twoHandingMainHand || false
-  const twoHandingOffHand = character.combat_settings?.twoHandingOffHand || false
-
-  // Build complete weapon data with modifications applied
-  const mainHandData = buildWeaponData(
-    character.equipment?.MainHand,
-    character.weapon_modifications,
-    compendiumWeapons
-  )
-
-  const offHandData = buildWeaponData(
-    character.equipment?.OffHand,
-    character.weapon_modifications,
-    compendiumWeapons
-  )
-
-  // Calculate and attach scaling bonuses (pre-calculated for Foundry)
-  if (mainHandData) {
-    mainHandData.scalingBonus = calculateWeaponScaling(mainHandData, twoHandingMainHand)
-  }
-  if (offHandData) {
-    offHandData.scalingBonus = calculateWeaponScaling(offHandData, twoHandingOffHand)
-  }
-
-  // CF2 + CF3: Collect ALL catalysts (weapons with spell_scaling) for multi-catalyst macro generation
-  // For trick weapons, each form with spell_scaling is a separate catalyst
-  const catalysts: any[] = []
-
-  // Helper to add catalyst entries for a weapon
-  const addWeaponCatalysts = (weaponData: any, slot: 'mainHand' | 'offHand') => {
-    if (!weaponData) return
-
-    if (weaponData.is_trick && weaponData.forms) {
-      // CF3: Trick weapon - check each form for spell_scaling
-      if (weaponData.forms.primary?.spell_scaling?.length > 0) {
-        catalysts.push({
-          ...weaponData,
-          spell_scaling: weaponData.forms.primary.spell_scaling,
-          slot,
-          form: 'primary',
-          displayName: `${weaponData.name} [${formatWeaponType(weaponData.weapon_type)}]`
-        })
-      }
-      if (weaponData.forms.secondary?.spell_scaling?.length > 0) {
-        catalysts.push({
-          ...weaponData,
-          spell_scaling: weaponData.forms.secondary.spell_scaling,
-          slot,
-          form: 'secondary',
-          displayName: `${weaponData.name} [${formatWeaponType(weaponData.second_type)}]`
-        })
-      }
-    } else if (weaponData.spell_scaling?.length > 0) {
-      // Non-trick weapon with spell_scaling
-      catalysts.push({
-        ...weaponData,
-        slot,
-        displayName: weaponData.name || (slot === 'mainHand' ? 'Main Hand' : 'Off Hand')
-      })
-    }
-  }
-
-  addWeaponCatalysts(mainHandData, 'mainHand')
-  addWeaponCatalysts(offHandData, 'offHand')
-
-  // Primary casting implement for App display (first catalyst with mainHand priority)
-  const primaryCastingImplement = catalysts.length > 0 ? catalysts[0] : null
-
-  // Attuned abilities with scaling bonus for App display (using primary catalyst)
-  // Foundry will also use the catalysts array to generate per-catalyst macros
-  const attunedSpellsWithScaling = (character.attuned_spells || []).map((spell: any) => ({
-    ...spell,
-    scalingBonus: primaryCastingImplement ? calculateSpellScaling(spell, primaryCastingImplement) : 0
-  }))
-
-  const attunedSpiritsWithScaling = (character.attuned_spirits || []).map((spirit: any) => ({
-    ...spirit,
-    scalingBonus: primaryCastingImplement ? calculateSpellScaling(spirit, primaryCastingImplement) : 0
-  }))
-
-  // Build stat modifiers from raw stat values (matches what the app displays)
-  const statMods: Record<string, number> = {}
-  if (character.stats) {
-    for (const [key, value] of Object.entries(character.stats)) {
-      statMods[key] = statMod(value as number)
-    }
-  }
-
-  // Build skill modifiers as displayed in the app: raw skill points + bonus from stats
-  const skillMods: Record<string, number> = {}
-  if (character.skills) {
-    for (const [key, value] of Object.entries(character.skills)) {
-      skillMods[key] = (value as number) + skillModBonusFromStats(key)
-    }
-  }
-
-  // Knowledge modifiers are just the raw stored value (matches app display)
-  const knowledgeMods: Record<string, number> = {}
-  if (character.knowledge) {
-    for (const [key, value] of Object.entries(character.knowledge)) {
-      knowledgeMods[key] = value as number
-    }
-  }
-
-  // Build combat data for macro generation
   const combatData = {
-    uuid: character.uuid,
-    actorId,  // Include actorId for immediate fetch response
-    name: character.name,
-    stats: character.stats,
-    statMods,
-    skills: skillMods,
-    knowledge: knowledgeMods,
-    level: character.level,
-
-    // Equipment - now includes full weapon data with scalingBonus
-    mainHand: mainHandData,
-    offHand: offHandData,
-
-    // CF2: All catalysts for multi-catalyst spell macro generation
-    catalysts,
-
-    // Attuned abilities (with primary catalyst scaling for display)
-    attunedSpells: attunedSpellsWithScaling,
-    attunedSpirits: attunedSpiritsWithScaling,
-    attunedWeaponSkills: character.attuned_weapon_skills || [],
-
-    // Combat settings
+    ...payload,
+    actorId,
     combatSettings: {
-      twoHandingMainHand,
-      twoHandingOffHand
+      twoHandingMainHand: character.combat_settings?.twoHandingMainHand || false,
+      twoHandingOffHand: character.combat_settings?.twoHandingOffHand || false
     },
-
-    // Resistance tables (for damage calculation in Foundry)
-    resistances: {
-      primary: {
-        Physical: character.bonus_resistances?.Physical || 0,
-        Magic: character.bonus_resistances?.Magic || 0,
-        Fire: character.bonus_resistances?.Fire || 0,
-        Lightning: character.bonus_resistances?.Lightning || 0,
-        Dark: character.bonus_resistances?.Dark || 0,
-        FlatPhysical: character.bonus_resistances?.FlatPhysical || 0,
-        FlatMagic: character.bonus_resistances?.FlatMagic || 0,
-        FlatFire: character.bonus_resistances?.FlatFire || 0,
-        FlatLightning: character.bonus_resistances?.FlatLightning || 0,
-        FlatDark: character.bonus_resistances?.FlatDark || 0
-      },
-      bonus: {
-        active: character.bonus_resistances_active || false,
-        Physical: character.bonus_resistances_temp?.Physical || 0,
-        Magic: character.bonus_resistances_temp?.Magic || 0,
-        Fire: character.bonus_resistances_temp?.Fire || 0,
-        Lightning: character.bonus_resistances_temp?.Lightning || 0,
-        Dark: character.bonus_resistances_temp?.Dark || 0,
-        FlatPhysical: character.bonus_resistances_temp?.FlatPhysical || 0,
-        FlatMagic: character.bonus_resistances_temp?.FlatMagic || 0,
-        FlatFire: character.bonus_resistances_temp?.FlatFire || 0,
-        FlatLightning: character.bonus_resistances_temp?.FlatLightning || 0,
-        FlatDark: character.bonus_resistances_temp?.FlatDark || 0
-      }
-    },
-
-    // Status bonus values (Foundry computes thresholds using these + statMods)
-    bonusStatuses: character.bonus_statuses || { Bleed: 0, Poison: 0, Toxic: 0, Frost: 0, Curse: 0, Poise: 0 }
+    // camelCase aliases consumed by Foundry's macroManager and damageSystem.
+    attunedSpells: payload.attuned_spells,
+    attunedSpirits: payload.attuned_spirits,
+    attunedWeaponSkills: payload.attuned_weapon_skills,
+    bonusStatuses: payload.bonus_statuses,
+    resistances: buildCombatResistances(character)
   }
 
   console.log('[Foundry Sync] Sending combat data for', character.name, combatData)
   send(MESSAGE_TYPES.COMBAT_DATA_RESPONSE, combatData)
+}
+
+function getStoredAuthToken(): string | null {
+  if (typeof window === 'undefined') return null
+  return localStorage.getItem('sd20_auth_token')
 }
 
 function connect() {
@@ -668,9 +602,16 @@ function connect() {
     return
   }
 
+  const token = getStoredAuthToken()
+  if (!token) {
+    console.log('[Foundry Sync] No auth token, skipping connect')
+    return
+  }
+
   try {
-    console.log('[Foundry Sync] Connecting to relay:', WEBSOCKET_URL)
-    state.socket = new WebSocket(WEBSOCKET_URL)
+    const connectUrl = `${WEBSOCKET_URL}?token=${encodeURIComponent(token)}`
+    console.log('[Foundry Sync] Connecting to relay (authenticated)')
+    state.socket = new WebSocket(connectUrl)
 
     state.socket.onopen = () => {
       console.log('[Foundry Sync] Connected to relay')
@@ -695,6 +636,11 @@ function connect() {
       state.isFoundryConnected = false
       state.socket = null
       stopHeartbeat()
+      // 4401: relay rejected the token; retry would loop. Wait for re-login.
+      if (event.code === 4401) {
+        console.warn('[Foundry Sync] Auth rejected by relay - not auto-reconnecting')
+        return
+      }
       scheduleReconnect()
     }
 
@@ -903,6 +849,78 @@ function sendCharacterUpdateForUuid(uuid: string) {
   console.log(`[Foundry Sync] Sending debounced update for ${character.name}`)
   const payload = buildCharacterPayload(character)
   send(MESSAGE_TYPES.CHARACTER_UPDATE, payload)
+
+  // Mirror the same snapshot to other App clients subscribed to this character.
+  // The relay routes only to subscribers of this characterUuid, so unrelated
+  // sessions never see the payload.
+  send(MESSAGE_TYPES.APP_CHARACTER_UPDATE, {
+    characterUuid: uuid,
+    origin: APP_ORIGIN_ID,
+    snapshot: character,
+    updated_at: character.updated_at || new Date().toISOString()
+  })
+}
+
+let _isApplyingRemoteUpdate = false
+
+export function isApplyingRemoteCharacterUpdate(): boolean {
+  return _isApplyingRemoteUpdate
+}
+
+async function handleIncomingAppUpdate(data: Record<string, unknown>) {
+  const characterUuid = data?.characterUuid as string | undefined
+  const origin = data?.origin as string | undefined
+  const snapshot = data?.snapshot as StoredCharacter | undefined
+  if (!characterUuid || !snapshot) return
+  if (origin && origin === APP_ORIGIN_ID) return // our own echo
+
+  const incomingStamp = (data?.updated_at as string) || snapshot.updated_at
+  try {
+    const { getAllCharacters: getAll, saveCharacterList } = await import('@/mixins/characterStorage')
+    const list = getAll()
+    const existing = list.characters.find(c => c.uuid === characterUuid)
+    const localStamp = existing?.updated_at
+    if (localStamp && incomingStamp && Date.parse(localStamp) > Date.parse(incomingStamp)) {
+      console.warn(`[Foundry Sync] Ignoring remote update for ${characterUuid}: local copy is newer`)
+      return
+    }
+
+    _isApplyingRemoteUpdate = true
+    try {
+      if (existing) {
+        Object.assign(existing, snapshot)
+      } else {
+        list.characters.push(snapshot)
+      }
+      saveCharacterList(list)
+    } finally {
+      _isApplyingRemoteUpdate = false
+    }
+
+    // If the affected character is the active one in the player store, ask it
+    // to reload from localStorage so reactive views update instantly.
+    try {
+      const { usePlayerStore } = await import('@/store/player')
+      const store = usePlayerStore()
+      if ((store as any).UUID === characterUuid) {
+        (store as any).loadActiveCharacter()
+      }
+    } catch (err) {
+      console.warn('[Foundry Sync] Could not refresh playerStore after remote update', err)
+    }
+  } catch (err) {
+    console.error('[Foundry Sync] Failed to apply remote character update', err)
+  }
+}
+
+function subscribeToCharacter(uuid: string) {
+  if (!uuid) return
+  send(MESSAGE_TYPES.APP_SUBSCRIBE_CHARACTER, { characterUuid: uuid, origin: APP_ORIGIN_ID })
+}
+
+function unsubscribeFromCharacter(uuid: string) {
+  if (!uuid) return
+  send(MESSAGE_TYPES.APP_UNSUBSCRIBE_CHARACTER, { characterUuid: uuid, origin: APP_ORIGIN_ID })
 }
 
 /**
@@ -924,6 +942,9 @@ export const foundrySyncApi = {
   send,
   notifyCharacterUpdate,
   onCharacterDataChanged,  // New: debounced sync on significant changes
+  subscribeToCharacter,
+  unsubscribeFromCharacter,
+  isApplyingRemoteCharacterUpdate,
   getState: () => {
     const state = getState()
     return {
@@ -970,6 +991,19 @@ export default defineNuxtPlugin(() => {
 
   connect()
   startConnectionMonitor()
+
+  // Bug 20 + Bug 23: when any character changes in localStorage (active or not),
+  // push a debounced full-snapshot update to Foundry so the actor stays in sync
+  // without requiring a page reload or an explicit refresh. Storage events
+  // always represent a real mutation, so we bypass the significance whitelist
+  // and schedule a debounced sync directly.
+  if (!(window as any).__sd20_storage_to_foundry__) {
+    (window as any).__sd20_storage_to_foundry__ = true
+    onCharacterSync((type, character) => {
+      if (type === 'delete' || !character?.uuid) return
+      scheduleDebouncedSync(character.uuid)
+    })
+  }
 
   return {
     provide: {

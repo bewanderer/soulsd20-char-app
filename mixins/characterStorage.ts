@@ -325,6 +325,9 @@ export interface StoredCharacter {
   // Metadata
   created_at: string
   last_played: string
+  // Server-stamped revision (auto_now on the API). Used by the sync layer to
+  // detect when the local store is fresher than the API and prevent overwriting.
+  updated_at?: string
 }
 
 export interface CharacterList {

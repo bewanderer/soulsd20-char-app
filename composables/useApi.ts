@@ -92,6 +92,17 @@ export function useApi() {
         data = await response.json()
       }
 
+      // Any 401 from any endpoint means the stored token is no longer valid.
+      // Clear it immediately and notify auth listeners so they can sign out
+      // cleanly. Without this the App keeps sending the expired token until
+      // useAuth's fetchUser happens to run.
+      if (response.status === 401) {
+        clearToken()
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('sd20:auth-expired'))
+        }
+      }
+
       // Handle error responses
       if (!response.ok) {
         const error: ApiError = {

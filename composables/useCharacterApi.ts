@@ -721,21 +721,21 @@ export function useCharacterApi() {
         Cosmic: api.knowledge?.cosmic || 0
       },
 
-      starting_hp: api.resources?.starting_hp || 20,
+      starting_hp: api.resources?.starting_hp ?? 20,
       level_hp: api.resources?.level_hp || 0,
-      current_hp: api.resources?.current_hp || 20,
+      current_hp: api.resources?.current_hp ?? 20,
       temp_hp: api.resources?.temp_hp || 0,
       max_hp_bonus: api.resources?.max_hp_bonus || 0,
       health_die: {
-        count: api.resources?.health_die_count || 1,
-        sides: api.resources?.health_die_sides || 6
+        count: api.resources?.health_die_count ?? 1,
+        sides: api.resources?.health_die_sides ?? 6
       },
-      current_fp: api.resources?.current_fp || 2,
-      current_ap: api.resources?.current_ap || 8,
+      current_fp: api.resources?.current_fp ?? 2,
+      current_ap: api.resources?.current_ap ?? 8,
       max_fp_bonus: api.resources?.max_fp_bonus || 0,
       max_ap_bonus: api.resources?.max_ap_bonus || 0,
-      hp_flask: api.resources?.hp_flask || 4,
-      fp_flask: api.resources?.fp_flask || 4,
+      hp_flask: api.resources?.hp_flask ?? 4,
+      fp_flask: api.resources?.fp_flask ?? 4,
       flask_level: api.resources?.flask_level || 0,
       total_dodges: api.resources?.total_dodges || 0,
       current_dodges: api.resources?.current_dodges || 0,
@@ -744,7 +744,7 @@ export function useCharacterApi() {
       exhaustion: api.resources?.exhaustion || 0,
       firekeeping_checks: api.resources?.firekeeping_checks || 0,
       attunement_slots: api.resources?.attunement_slots || 0,
-      fate_points: api.resources?.fate_points || 2,
+      fate_points: api.resources?.fate_points ?? 2,
       temporary_fate_points: api.resources?.temporary_fate_points || 0,
 
       resistances: {
@@ -898,7 +898,8 @@ export function useCharacterApi() {
       }),
 
       created_at: api.created_at,
-      last_played: api.last_played
+      last_played: api.last_played,
+      updated_at: (api as any).updated_at
     }
   }
 

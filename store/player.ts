@@ -1171,6 +1171,14 @@ export const usePlayerStore = defineStore({
       // Inventory - reset to empty if not present
       this.Inventory = activeChar.inventory || []
 
+      const hadStubs = (items: any[] | undefined) =>
+        Array.isArray(items) && items.some((it: any) => it && !it.name)
+
+      const stubsBefore =
+        hadStubs(activeChar.attuned_spells) ||
+        hadStubs(activeChar.attuned_spirits) ||
+        hadStubs(activeChar.attuned_weapon_skills)
+
       // Spell system - hydrate attuned spells from compendium if needed
       this.LearnedSpells = activeChar.learned_spells || []
       this.SpellModifications = activeChar.spell_modifications || {}
@@ -1197,6 +1205,15 @@ export const usePlayerStore = defineStore({
         compendiumStore.WeaponSkills,
         'skill_id'
       )
+
+      const stubsAfter =
+        hadStubs(this.AttunedSpells) ||
+        hadStubs(this.AttunedSpirits) ||
+        hadStubs(this.AttunedWeaponSkills)
+
+      // If localStorage had stubs that we successfully hydrated, persist the
+      // full entries back so Foundry sync and other readers see consistent data.
+      const needsHydrationSave = stubsBefore && !stubsAfter
 
       // Weapon modifications
       this.WeaponModifications = activeChar.weapon_modifications || {}
@@ -1310,6 +1327,12 @@ export const usePlayerStore = defineStore({
 
       // Clear loading flag
       this.isLoadingCharacter = false
+
+      // Persist hydrated attunement entries so localStorage (and downstream
+      // readers like the Foundry sync plugin) no longer carry id-only stubs.
+      if (needsHydrationSave) {
+        this.save()
+      }
       return true
     },
 
@@ -1527,14 +1550,14 @@ export const usePlayerStore = defineStore({
       // Mark as initialized
       this._autoSaveInitialized = true
 
-      // Hybrid auto-save system:
-      // 1. User action debounce: 2s after last interaction
-      // 2. Periodic backup: Every 30s regardless of activity
+      // Save strategy: a single 2-second debounce after the most recent
+      // reactive change. The 30s periodic backup was removed because it fired
+      // on any incidental reactive churn (including idle GM views), which
+      // caused stale-state clobbers of fresher concurrent edits. The debounce
+      // already covers every real user action.
 
       let saveTimeout: ReturnType<typeof setTimeout> | null = null
-      let periodicSaveInterval: ReturnType<typeof setInterval> | null = null
 
-      // Debounced save (triggers 2s after last user action)
       const debouncedSave = () => {
         this.isDirty = true
         if (saveTimeout) clearTimeout(saveTimeout)
@@ -1543,14 +1566,6 @@ export const usePlayerStore = defineStore({
           this.isDirty = false
         }, 2000) // 2s delay after last action
       }
-
-      // Periodic backup save (every 30s) - only if data changed
-      periodicSaveInterval = setInterval(() => {
-        if (this.isDirty) {
-          this.save()
-          this.isDirty = false
-        }
-      }, 30000) // 30s interval
 
       // Watch character stats
       watch(() => this.CharacterStats.Stats, () => {

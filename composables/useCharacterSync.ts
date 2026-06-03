@@ -62,6 +62,11 @@ let _initialSyncResolve: (() => void) | null = null
 // Prevents save() from writing stale data while API data is being fetched
 let _syncInProgress = false
 
+// Monotonic session token incremented whenever pullFromApi starts. flushSyncQueue
+// captures this value and bails out of the loop if it changes mid-flight so that
+// PATCHes carrying state we just pulled fresher from the API cannot clobber it.
+let _syncSessionToken = 0
+
 export function isSyncInProgress(): boolean {
   return _syncInProgress
 }
@@ -193,8 +198,14 @@ export function useCharacterSync() {
     console.log(`[SD20 Sync] flushSyncQueue() processing ${queue.length} items`)
     syncState.status = 'syncing'
     const failedItems: SyncQueueItem[] = []
+    const sessionAtStart = _syncSessionToken
 
     for (const item of queue) {
+      if (_syncSessionToken !== sessionAtStart) {
+        console.warn('[SD20 Sync] flushSyncQueue() aborting: pullFromApi started during flush; remaining items kept in queue')
+        failedItems.push(item)
+        continue
+      }
       console.log(`[SD20 Sync] flushSyncQueue() processing: type="${item.type}" uuid="${item.uuid}" retries=${item.retries}`)
       try {
         let success = false
@@ -289,6 +300,7 @@ export function useCharacterSync() {
     try {
       console.log('[SD20 Sync] pullFromApi() fetching characters from API...')
       _syncInProgress = true
+      _syncSessionToken++
       syncState.status = 'syncing'
       const response = await characterApi.fetchCharacters()
 
@@ -331,6 +343,16 @@ export function useCharacterSync() {
           }
           if (!apiChar.creation_starting_hp && localChar.creation_starting_hp) {
             apiChar.creation_starting_hp = localChar.creation_starting_hp
+          }
+          // If the local copy is stamped newer than what the API just returned
+          // (in-flight save not yet processed, or another tab raced us), keep
+          // the local state rather than overwriting with stale API data.
+          const localStamp = localChar.updated_at ? Date.parse(localChar.updated_at) : NaN
+          const apiStamp = apiChar.updated_at ? Date.parse(apiChar.updated_at) : NaN
+          if (!isNaN(localStamp) && !isNaN(apiStamp) && localStamp > apiStamp) {
+            console.warn(`[CharacterSync] Local copy of ${apiChar.name} is newer than API; keeping local (${localChar.updated_at} > ${apiChar.updated_at})`)
+            mergedCharacters.push(localChar)
+            continue
           }
         }
         mergedCharacters.push(apiChar)
