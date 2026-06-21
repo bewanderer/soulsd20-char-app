@@ -34,7 +34,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { setActiveCharacter, getAllCharacters, saveCharacterList } from '~/mixins/characterStorage'
 import { usePlayerStore } from '~/store/player'
@@ -103,69 +103,64 @@ const tabComponents: Record<string, any> = {
 
 const activeTabComponent = computed(() => tabComponents[activeTab.value] || CharacterTab)
 
-onMounted(async () => {
-  const uuid = route.params.uuid as string
-  console.log(`[SD20 Nav] [uuid].vue mounted, uuid from route: "${uuid}"`)
+// Vue reuses this component when navigating between /character/uuid1 and
+// /character/uuid2, so onMounted only fires once. Without a route-param watch
+// the page kept showing the first-loaded character no matter which one the
+// GM clicked Inspect on. loadCharacter is invoked from both onMounted and
+// from the watch below.
+let activeSubscriptionUuid: string | null = null
+
+async function loadCharacter(uuid: string) {
+  isLoading.value = true
+  loadError.value = null
+  isGmViewing.value = false
+
   if (!uuid) {
     loadError.value = 'No character UUID provided'
     isLoading.value = false
     return
   }
 
-  // Compendium is loaded by plugins/compendium.client.ts on startup
+  console.log(`[SD20 Nav] loadCharacter("${uuid}")`)
 
-  // Wait for API sync to complete first
-  console.log('[SD20 Nav] Waiting for initial sync...')
+  if (activeSubscriptionUuid && activeSubscriptionUuid !== uuid) {
+    foundrySyncApi.unsubscribeFromCharacter(activeSubscriptionUuid)
+    activeSubscriptionUuid = null
+  }
+
   await waitForInitialSync()
-  console.log('[SD20 Nav] Initial sync complete')
 
-  // Find the character in localStorage
   let characterList = getAllCharacters()
   let character = characterList.characters.find(c => c.uuid === uuid)
 
-  if (character) {
-    console.log(`[SD20 Nav] Character found in localStorage: "${character.name}" (uuid=${uuid})`)
-  }
-
-  // If not in localStorage, fetch directly from API (only own characters)
   if (!character) {
-    console.log(`[SD20 Nav] Character NOT found in localStorage, fetching from API: ${uuid}`)
     const response = await characterApi.fetchCharacter(uuid)
     if (response.ok && response.data) {
       const apiChar = response.data as any
       const currentUserUuid = auth.user.value?.uuid
 
-      // Only save to localStorage if the character belongs to the current user
       if (apiChar.owner?.uuid === currentUserUuid || apiChar.owner?.id === auth.user.value?.id) {
         const converted = characterApi.fromApiFormat(response.data)
         characterList = getAllCharacters()
         characterList.characters.push(converted)
         saveCharacterList(characterList)
         character = converted
-        console.log(`[SD20 Nav] Own character fetched from API: "${converted.name}"`)
       } else {
-        // GM viewing another player's character (read-only or edit mode from campaign)
         const converted = characterApi.fromApiFormat(response.data)
         character = converted
         isGmViewing.value = true
-        console.log(`[SD20 Nav] Viewing other user's character (GM mode): "${converted.name}"`)
       }
-    } else {
-      console.warn(`[SD20 Nav] API fetch failed for uuid=${uuid}`)
     }
   }
 
   if (!character) {
-    console.warn(`[SD20 Nav] Character not found anywhere: uuid=${uuid}`)
     loadError.value = 'Character not found. It may have been deleted.'
     isLoading.value = false
     return
   }
 
-  // Set as active and load into store
   setActiveCharacter(uuid)
   const loaded = playerStore.loadActiveCharacter()
-  console.log(`[SD20 Store] loadActiveCharacter() result: ${loaded}`)
 
   if (!loaded) {
     loadError.value = 'Failed to load character data'
@@ -173,26 +168,32 @@ onMounted(async () => {
     return
   }
 
-  // Setup auto-save AFTER character is loaded
   playerStore.setupAutoSave()
 
-  // Subscribe to live-collab updates for this character. The relay routes
-  // app:character-update messages only to clients holding this subscription.
   foundrySyncApi.subscribeToCharacter(uuid)
+  activeSubscriptionUuid = uuid
 
-  // Check for Level 0 character (incomplete character creation)
   if (playerStore.Level === 0 && !playerStore.PendingLevelUp?.active) {
     playerStore.initializeLevel1LevelUp()
   }
 
-  console.log(`[SD20 Nav] Character page fully loaded: "${playerStore.Name}" (Level ${playerStore.Level})`)
+  console.log(`[SD20 Nav] Loaded: "${playerStore.Name}" (uuid=${uuid})`)
   isLoading.value = false
+}
+
+onMounted(() => {
+  loadCharacter(route.params.uuid as string)
+})
+
+watch(() => route.params.uuid, (newUuid, oldUuid) => {
+  if (!newUuid || newUuid === oldUuid) return
+  loadCharacter(newUuid as string)
 })
 
 onUnmounted(() => {
-  const uuid = route.params.uuid as string
-  if (uuid) {
-    foundrySyncApi.unsubscribeFromCharacter(uuid)
+  if (activeSubscriptionUuid) {
+    foundrySyncApi.unsubscribeFromCharacter(activeSubscriptionUuid)
+    activeSubscriptionUuid = null
   }
 })
 </script>

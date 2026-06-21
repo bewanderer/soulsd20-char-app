@@ -337,8 +337,27 @@ export interface CharacterList {
 }
 
 const STORAGE_KEY_PREFIX = 'sd20_characters'
-const MAX_CHARACTERS = 10
+// Fallback only. The real per-user cap comes from the API (max_characters on
+// UserProfile). Was previously hardcoded at 10 and triggered a global-feeling
+// "Maximum amount reached" error even when individual users were under their
+// own cap. Read from the cached user object below.
+const FALLBACK_MAX_CHARACTERS = 10
 const STORAGE_VERSION = '1.0'
+
+function getUserMaxCharacters(): number {
+  if (typeof window === 'undefined') return FALLBACK_MAX_CHARACTERS
+  try {
+    const userData = localStorage.getItem('sd20_user')
+    if (userData) {
+      const user = JSON.parse(userData)
+      const max = parseInt(user?.max_characters)
+      if (Number.isFinite(max) && max > 0) return max
+    }
+  } catch {
+    // fall through
+  }
+  return FALLBACK_MAX_CHARACTERS
+}
 
 // Per-user storage key based on logged-in user UUID
 export function getStorageKey(): string {
@@ -471,7 +490,7 @@ export function saveCharacterList(list: CharacterList): boolean {
 export function addCharacter(character: StoredCharacter): boolean {
   const list = getAllCharacters()
 
-  if (list.characters.length >= MAX_CHARACTERS) {
+  if (list.characters.length >= getUserMaxCharacters()) {
     console.error('Maximum character limit reached')
     return false
   }
@@ -568,7 +587,7 @@ export function importCharacter(jsonString: string): boolean {
     const list = getAllCharacters()
 
     // Check if character limit reached
-    if (list.characters.length >= MAX_CHARACTERS) {
+    if (list.characters.length >= getUserMaxCharacters()) {
       console.error('Maximum character limit reached')
       return false
     }
@@ -629,7 +648,7 @@ export function importMultipleCharacters(jsonString: string): { success: number;
       }
 
       // Check if character limit reached
-      if (list.characters.length >= MAX_CHARACTERS) {
+      if (list.characters.length >= getUserMaxCharacters()) {
         failedCount++
         console.error('Maximum character limit reached')
         break

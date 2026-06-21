@@ -131,7 +131,7 @@ function rehydrateAttuned(items: any[] | undefined, compendiumList: any[] | unde
   return result
 }
 
-// Calculate maxHP from stored character data
+// Same formula as ActiveCombatValueTracker.vue. Keep in sync if either changes.
 function calculateMaxHP(character: ReturnType<typeof getActiveCharacter>): number {
   if (!character) return 0
   const startingHP = character.starting_hp || 0
@@ -140,7 +140,7 @@ function calculateMaxHP(character: ReturnType<typeof getActiveCharacter>): numbe
   const vitality = character.stats?.vitality || 10
   const vitMod = statMod(vitality)
   const level = character.level || 1
-  const vitBonus = level === 1 ? vitMod : vitMod * (Math.floor(level / 2) + 1)
+  const vitBonus = vitMod * Math.floor(level / 2)
   return startingHP + levelHP + bonusHP + vitBonus
 }
 
@@ -216,8 +216,9 @@ function handleMessage(message: { type: string; data: Record<string, unknown> })
     case MESSAGE_TYPES.COMBAT_DATA_REQUEST:
       const requestedUuid = message.data.uuid as string
       const actorId = message.data.actorId as string | undefined
+      const requestId = message.data.requestId as string | undefined
       if (requestedUuid) {
-        sendCombatData(requestedUuid, actorId)
+        sendCombatData(requestedUuid, actorId, requestId)
       }
       break
 
@@ -556,12 +557,44 @@ function buildCombatResistances(character: StoredCharacter) {
   }
 }
 
-function sendCombatData(uuid: string, actorId?: string) {
+// Per-tab dedupe for combat:request-data. Multiple App tabs on the same
+// account all see the request and would all respond, so Foundry receives
+// duplicates. A short cross-tab claim via localStorage picks one responder.
+const _respondedRequests = new Map<string, number>()
+function _claimCombatDataRequest(uuid: string, requestId: string | undefined): boolean {
+  if (!requestId) return true
+  const key = `sd20_combat_req_${requestId}`
+  if (typeof window === 'undefined') return true
+  try {
+    const existing = window.localStorage.getItem(key)
+    if (existing) return false
+    window.localStorage.setItem(key, String(Date.now()))
+    // Stale cleanup
+    const now = Date.now()
+    for (const [k, ts] of _respondedRequests) {
+      if (now - ts > 5000) _respondedRequests.delete(k)
+    }
+    _respondedRequests.set(requestId, now)
+    setTimeout(() => {
+      try { window.localStorage.removeItem(key) } catch {}
+    }, 2000)
+    return true
+  } catch {
+    return true
+  }
+}
+
+function sendCombatData(uuid: string, actorId?: string, requestId?: string) {
+  if (!_claimCombatDataRequest(uuid, requestId)) {
+    console.log('[Foundry Sync] Skipping duplicate response, another tab is handling requestId=', requestId)
+    return
+  }
+
   const allChars = getAllCharacters()
   const character = allChars.characters.find(c => c.uuid === uuid)
 
   if (!character) {
-    send(MESSAGE_TYPES.COMBAT_DATA_RESPONSE, { uuid, actorId, combatData: null })
+    send(MESSAGE_TYPES.COMBAT_DATA_RESPONSE, { uuid, actorId, requestId, combatData: null })
     return
   }
 
@@ -570,6 +603,7 @@ function sendCombatData(uuid: string, actorId?: string) {
   const combatData = {
     ...payload,
     actorId,
+    requestId,
     combatSettings: {
       twoHandingMainHand: character.combat_settings?.twoHandingMainHand || false,
       twoHandingOffHand: character.combat_settings?.twoHandingOffHand || false
@@ -582,7 +616,7 @@ function sendCombatData(uuid: string, actorId?: string) {
     resistances: buildCombatResistances(character)
   }
 
-  console.log('[Foundry Sync] Sending combat data for', character.name, combatData)
+  console.log('[Foundry Sync] Sending combat data for', character.name, 'requestId=', requestId)
   send(MESSAGE_TYPES.COMBAT_DATA_RESPONSE, combatData)
 }
 
