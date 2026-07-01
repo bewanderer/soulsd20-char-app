@@ -24,6 +24,13 @@ export interface User {
   max_campaigns_as_gm: number
   is_admin: boolean
   patreon_connected: boolean
+  account_locked?: boolean
+  lock_reason?: string
+  lock_date?: string | null
+  grace_period_notified?: boolean
+  days_until_lockout?: number | null
+  should_show_grace_toast?: boolean
+  is_exempt_from_lockout?: boolean
 }
 
 // Module-level state for sharing across components
@@ -53,6 +60,33 @@ export function useAuth() {
       localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData))
     } else {
       localStorage.removeItem(USER_STORAGE_KEY)
+    }
+  }
+
+  async function maybeShowGraceToast(userData: User): Promise<void> {
+    if (!userData?.should_show_grace_toast) return
+    if (typeof window === 'undefined') return
+    const days = userData.days_until_lockout
+    const daysText = typeof days === 'number' && days > 0 ? `${days} day${days === 1 ? '' : 's'}` : 'soon'
+    try {
+      const { useToastStore } = await import('~/store/toast')
+      const toastStore = useToastStore()
+      toastStore.show({
+        type: 'warning',
+        title: 'Patreon pledge expiring',
+        message: `Your Souls D20 access expires in ${daysText}. Renew your Patreon pledge to keep access.`,
+        duration: 0,
+        dedupeKey: 'grace-lockout-warning',
+        onClose: () => {
+          api.post('/api/auth/acknowledge-grace-notification/', {}).catch(() => { /* swallow */ })
+          if (user.value) {
+            user.value = { ...user.value, grace_period_notified: true, should_show_grace_toast: false }
+            persistUser(user.value)
+          }
+        },
+      })
+    } catch (err) {
+      console.warn('[SD20 Auth] Failed to raise grace toast', err)
     }
   }
 
@@ -87,6 +121,7 @@ export function useAuth() {
         api.setToken(response.data.token)
         user.value = response.data.user
         persistUser(response.data.user)
+        maybeShowGraceToast(response.data.user)
 
         // Set session marker for browser close detection
         if (typeof window !== 'undefined') {
@@ -202,6 +237,7 @@ export function useAuth() {
         api.setToken(response.data.token)
         user.value = response.data.user
         persistUser(response.data.user)
+        maybeShowGraceToast(response.data.user)
 
         // Set session marker for browser close detection
         if (typeof window !== 'undefined') {
@@ -382,6 +418,7 @@ export function useAuth() {
         console.log(`[SD20 Auth] fetchUser() success: user=${response.data.username}, id=${response.data.id}`)
         user.value = response.data
         persistUser(response.data)
+        maybeShowGraceToast(response.data)
         return true
       } else {
         console.warn(`[SD20 Auth] fetchUser() failed: status=${response.error?.status}, message=${response.error?.message}`)

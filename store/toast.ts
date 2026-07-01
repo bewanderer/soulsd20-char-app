@@ -6,6 +6,8 @@ interface Toast {
   title: string
   message?: string
   duration?: number
+  onClose?: () => void
+  dedupeKey?: string
 }
 
 export const useToastStore = defineStore('toast', {
@@ -15,6 +17,9 @@ export const useToastStore = defineStore('toast', {
 
   actions: {
     show(toast: Omit<Toast, 'id'>) {
+      if (toast.dedupeKey && this.toasts.some(t => t.dedupeKey === toast.dedupeKey)) {
+        return ''
+      }
       const id = `toast_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
       this.toasts.push({
@@ -45,7 +50,10 @@ export const useToastStore = defineStore('toast', {
     remove(id: string) {
       const index = this.toasts.findIndex(t => t.id === id)
       if (index !== -1) {
-        this.toasts.splice(index, 1)
+        const [removed] = this.toasts.splice(index, 1)
+        if (removed?.onClose) {
+          try { removed.onClose() } catch { /* swallow */ }
+        }
       }
     },
 
