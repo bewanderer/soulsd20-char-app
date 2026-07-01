@@ -259,6 +259,26 @@ export function useCharacterApi() {
     return api.get<ApiCharacter[]>('/api/characters/')
   }
 
+  // Optimization 1: lightweight dashboard list. Roughly 1 KB per character vs
+  // 50 KB for the full detail payload. Used for the dashboard grid and by the
+  // sync layer to compare updated_at values before deciding whether to refetch.
+  async function fetchLightList(): Promise<ApiResponse<Array<{
+    id: string
+    name: string
+    level: number
+    image_url: string | null
+    is_finalized: boolean
+    is_active: boolean
+    background_id: number
+    lineage_id: number
+    bloodline_id: number | null
+    created_at: string
+    updated_at: string
+    last_played: string
+  }>>> {
+    return api.get('/api/characters/lightlist/')
+  }
+
   // Fetch single character detail
   async function fetchCharacter(uuid: string): Promise<ApiResponse<ApiCharacter>> {
     return api.get<ApiCharacter>(`/api/characters/${uuid}/`)
@@ -1009,6 +1029,7 @@ export function useCharacterApi() {
   return {
     // API methods
     fetchCharacters,
+    fetchLightList,
     fetchCharacter,
     createCharacter,
     updateCharacter,

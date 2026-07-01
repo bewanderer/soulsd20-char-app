@@ -291,6 +291,186 @@ export function useCharacterSync() {
   }
 
   // Pull characters from API and merge with localStorage
+  /**
+   * Optimization 1: two-phase pull. Fetch the lightweight list first, then
+   * only fetch full details for characters whose server updated_at is newer
+   * than the local copy (or characters we do not have locally at all).
+   *
+   * Cost: 1 small list request + N small detail requests where N = characters
+   * changed since last sync. First-run for a new device: 1 list + M full
+   * details where M = total character count (same total as legacy pullFromApi
+   * but split across small requests, which lets the UI render partial state
+   * as they arrive).
+   */
+  async function pullFromApiLight(): Promise<boolean> {
+    if (!api.isAuthenticated()) {
+      console.log('[CharacterSync] Not authenticated, using localStorage only')
+      return false
+    }
+
+    try {
+      console.log('[SD20 Sync] pullFromApiLight() fetching lightlist')
+      _syncInProgress = true
+      _syncSessionToken++
+      syncState.status = 'syncing'
+
+      const listResp = await characterApi.fetchLightList()
+      if (!listResp.ok || !listResp.data) {
+        console.error('[CharacterSync] Lightlist fetch failed:', listResp.error)
+        syncState.status = 'error'
+        syncState.error = listResp.error?.message || 'Failed to fetch character list'
+        _syncInProgress = false
+        return false
+      }
+
+      const localList = getAllCharacters()
+      const localByUuid = new Map<string, StoredCharacter>()
+      const normalizeUuid = (uuid: string) => uuid.toLowerCase().trim()
+      for (const c of localList.characters) {
+        localByUuid.set(normalizeUuid(c.uuid), c)
+      }
+
+      // Decide which characters need a detail fetch.
+      const toFetch: string[] = []
+      const serverUuids = new Set<string>()
+      for (const light of listResp.data) {
+        serverUuids.add(normalizeUuid(light.id))
+        const localChar = localByUuid.get(normalizeUuid(light.id))
+        if (!localChar) {
+          toFetch.push(light.id)
+          continue
+        }
+        const localStamp = localChar.updated_at ? Date.parse(localChar.updated_at) : NaN
+        const serverStamp = light.updated_at ? Date.parse(light.updated_at) : NaN
+        if (!isNaN(localStamp) && !isNaN(serverStamp) && serverStamp <= localStamp) {
+          continue
+        }
+        toFetch.push(light.id)
+      }
+
+      console.log(`[SD20 Sync] pullFromApiLight() lightlist=${listResp.data.length}, needs detail=${toFetch.length}`)
+
+      // Fetch stale ones in parallel. Small array, small requests, safe to fan out.
+      const detailResponses = await Promise.all(
+        toFetch.map(id => characterApi.fetchCharacter(id))
+      )
+
+      const fetchedChars: StoredCharacter[] = []
+      for (const resp of detailResponses) {
+        if (resp.ok && resp.data) {
+          fetchedChars.push(characterApi.fromApiFormat(resp.data))
+        }
+      }
+
+      // Merge: fresh detail wins for characters we refetched, local wins for
+      // characters we did not (server said their updated_at is not newer).
+      const merged: StoredCharacter[] = []
+      const fetchedByUuid = new Map<string, StoredCharacter>()
+      for (const c of fetchedChars) {
+        fetchedByUuid.set(normalizeUuid(c.uuid), c)
+      }
+      for (const light of listResp.data) {
+        const normalizedId = normalizeUuid(light.id)
+        const fresh = fetchedByUuid.get(normalizedId)
+        if (fresh) {
+          const localChar = localByUuid.get(normalizedId)
+          if (localChar && !fresh.creation_stats && localChar.creation_stats) {
+            fresh.creation_stats = localChar.creation_stats
+          }
+          if (localChar && !fresh.creation_starting_hp && localChar.creation_starting_hp) {
+            fresh.creation_starting_hp = localChar.creation_starting_hp
+          }
+          merged.push(fresh)
+        } else {
+          const localChar = localByUuid.get(normalizedId)
+          if (localChar) merged.push(localChar)
+        }
+      }
+
+      // Preserve local-only queued characters not yet in API.
+      const queue = loadSyncQueue()
+      for (const localChar of localList.characters) {
+        if (!serverUuids.has(normalizeUuid(localChar.uuid))) {
+          const isQueued = queue.some(item => normalizeUuid(item.uuid) === normalizeUuid(localChar.uuid))
+          if (isQueued) merged.push(localChar)
+        }
+      }
+
+      const mergedList: CharacterList = {
+        characters: merged,
+        active_uuid: localList.active_uuid,
+        version: localList.version,
+      }
+      if (mergedList.active_uuid && !merged.some(c => c.uuid === mergedList.active_uuid)) {
+        mergedList.active_uuid = merged.length > 0 ? merged[0].uuid : null
+      } else if (!mergedList.active_uuid && merged.length > 0) {
+        mergedList.active_uuid = merged[0].uuid
+      }
+
+      saveCharacterList(mergedList)
+      foundrySync.notifyCharacterUpdate()
+
+      syncState.status = 'synced'
+      syncState.lastSyncedAt = new Date().toISOString()
+      syncState.error = null
+      _syncInProgress = false
+      return true
+    } catch (error) {
+      console.error('[CharacterSync] pullFromApiLight error:', error)
+      syncState.status = 'error'
+      syncState.error = error instanceof Error ? error.message : 'Unknown error'
+      _syncInProgress = false
+      return false
+    }
+  }
+
+  /**
+   * Bug 2: refetch a single character in the background when the character
+   * page mounts. Compares server updated_at against local before doing the
+   * heavy detail fetch. Does NOT block page render.
+   */
+  async function refreshSingleCharacter(uuid: string): Promise<boolean> {
+    if (!api.isAuthenticated()) return false
+    try {
+      const listResp = await characterApi.fetchLightList()
+      if (!listResp.ok || !listResp.data) return false
+
+      const light = listResp.data.find(c => c.id.toLowerCase() === uuid.toLowerCase())
+      if (!light) return false
+
+      const localList = getAllCharacters()
+      const localChar = localList.characters.find(
+        c => c.uuid.toLowerCase() === uuid.toLowerCase()
+      )
+      const localStamp = localChar?.updated_at ? Date.parse(localChar.updated_at) : NaN
+      const serverStamp = light.updated_at ? Date.parse(light.updated_at) : NaN
+      if (localChar && !isNaN(localStamp) && !isNaN(serverStamp) && serverStamp <= localStamp) {
+        return true
+      }
+
+      const detailResp = await characterApi.fetchCharacter(uuid)
+      if (!detailResp.ok || !detailResp.data) return false
+
+      const fresh = characterApi.fromApiFormat(detailResp.data)
+      if (localChar) {
+        if (!fresh.creation_stats && localChar.creation_stats) fresh.creation_stats = localChar.creation_stats
+        if (!fresh.creation_starting_hp && localChar.creation_starting_hp) fresh.creation_starting_hp = localChar.creation_starting_hp
+      }
+
+      const idx = localList.characters.findIndex(c => c.uuid.toLowerCase() === uuid.toLowerCase())
+      if (idx >= 0) {
+        localList.characters[idx] = fresh
+      } else {
+        localList.characters.push(fresh)
+      }
+      saveCharacterList(localList)
+      return true
+    } catch (error) {
+      console.error('[CharacterSync] refreshSingleCharacter error:', error)
+      return false
+    }
+  }
+
   async function pullFromApi(): Promise<boolean> {
     if (!api.isAuthenticated()) {
       console.log('[CharacterSync] Not authenticated, using localStorage only')
@@ -487,6 +667,8 @@ export function useCharacterSync() {
     // Actions
     initSync,
     pullFromApi,
+    pullFromApiLight,
+    refreshSingleCharacter,
     pushChange,
     forceSync,
     canSync,

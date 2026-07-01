@@ -294,13 +294,16 @@ export function useAuth() {
 
     // Clear character localStorage BEFORE clearing user (need user UUID for key)
     try {
-      const { getStorageKey } = await import('~/mixins/characterStorage')
+      const { getStorageKey, cleanupOrphanCharacterKeys } = await import('~/mixins/characterStorage')
       const key = getStorageKey()
       console.log(`[SD20 Auth] logout() clearing character storage key="${key}"`)
       if (typeof window !== 'undefined') {
         localStorage.removeItem(key)
         localStorage.removeItem('sd20_characters') // Legacy global key
         localStorage.removeItem('sd20_sync_queue')
+        // Sweep any leftover per-user character keys (defense in depth against
+        // stale accounts on a shared browser).
+        cleanupOrphanCharacterKeys(null)
       }
     } catch {
       // characterStorage not available

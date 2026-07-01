@@ -328,6 +328,10 @@ export interface StoredCharacter {
   // Server-stamped revision (auto_now on the API). Used by the sync layer to
   // detect when the local store is fresher than the API and prevent overwriting.
   updated_at?: string
+  // Client-only revision timestamp (ms since epoch). Bumped by playerStore.save()
+  // on every local edit. Used as the cache key for Optimization 2's combat
+  // payload cache. Independent of updated_at which only changes on API roundtrips.
+  local_updated_at?: number
 }
 
 export interface CharacterList {
@@ -389,6 +393,42 @@ export function getStorageKey(): string {
   // No user logged in - return a key that produces empty results
   // Never fall back to global key to prevent cross-user data leaks
   return `${STORAGE_KEY_PREFIX}_anonymous`
+}
+
+/**
+ * Remove any localStorage character keys that do NOT belong to the given
+ * user uuid. Pass null to remove EVERY per-user character key (used on logout).
+ *
+ * Intended safeguards:
+ *  - Prevent cross-user data leaks when the same browser is shared.
+ *  - Reclaim space if an old account was deleted server-side.
+ *
+ * Never touches the current user's key when currentUserUuid is provided.
+ */
+export function cleanupOrphanCharacterKeys(currentUserUuid: string | null): number {
+  if (typeof window === 'undefined') return 0
+  let removed = 0
+  try {
+    const keepKey = currentUserUuid ? `${STORAGE_KEY_PREFIX}_${currentUserUuid}` : null
+    const toRemove: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (!key) continue
+      if (!key.startsWith(`${STORAGE_KEY_PREFIX}_`)) continue
+      if (key === keepKey) continue
+      toRemove.push(key)
+    }
+    for (const key of toRemove) {
+      localStorage.removeItem(key)
+      removed++
+    }
+    if (removed > 0) {
+      console.log(`[SD20 Storage] cleanupOrphanCharacterKeys removed ${removed} key(s)`)
+    }
+  } catch (err) {
+    console.error('[SD20 Storage] cleanupOrphanCharacterKeys failed:', err)
+  }
+  return removed
 }
 
 // Maximum size for localStorage in bytes (5MB is typical limit, use 4MB as safe threshold)

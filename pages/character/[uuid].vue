@@ -39,7 +39,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { setActiveCharacter, getAllCharacters, saveCharacterList } from '~/mixins/characterStorage'
 import { usePlayerStore } from '~/store/player'
 import { useCompendiumStore } from '~/store/compendium'
-import { waitForInitialSync } from '~/composables/useCharacterSync'
+import { waitForInitialSync, useCharacterSync } from '~/composables/useCharacterSync'
 import { useCharacterApi } from '~/composables/useCharacterApi'
 import { useAuth } from '~/composables/useAuth'
 import { foundrySyncApi } from '~/plugins/foundry-sync.client'
@@ -111,7 +111,6 @@ const activeTabComponent = computed(() => tabComponents[activeTab.value] || Char
 let activeSubscriptionUuid: string | null = null
 
 async function loadCharacter(uuid: string) {
-  isLoading.value = true
   loadError.value = null
   isGmViewing.value = false
 
@@ -128,10 +127,43 @@ async function loadCharacter(uuid: string) {
     activeSubscriptionUuid = null
   }
 
-  await waitForInitialSync()
-
+  // Bug 2: try localStorage first without blocking on any initial API sync.
+  // If we already have this character locally, render immediately and only
+  // refresh in the background. If we do not, THEN we fall back to the network.
   let characterList = getAllCharacters()
   let character = characterList.characters.find(c => c.uuid === uuid)
+  const hasLocalCopy = !!character
+
+  if (hasLocalCopy) {
+    isLoading.value = true
+    setActiveCharacter(uuid)
+    const loaded = playerStore.loadActiveCharacter()
+    if (loaded) {
+      playerStore.setupAutoSave()
+      foundrySyncApi.subscribeToCharacter(uuid)
+      activeSubscriptionUuid = uuid
+      if (playerStore.Level === 0 && !playerStore.PendingLevelUp?.active) {
+        playerStore.initializeLevel1LevelUp()
+      }
+      isLoading.value = false
+
+      // Fire-and-forget background refresh. If the server copy is newer we
+      // pull it and the reactive store picks it up on next event.
+      const characterSync = useCharacterSync()
+      characterSync.refreshSingleCharacter(uuid).catch(err => {
+        console.warn('[SD20 Nav] Background refresh failed:', err)
+      })
+      console.log(`[SD20 Nav] Loaded from cache: "${playerStore.Name}" (uuid=${uuid})`)
+      return
+    }
+  }
+
+  // No local copy or the local copy failed to load: fetch full detail now.
+  isLoading.value = true
+  await waitForInitialSync()
+
+  characterList = getAllCharacters()
+  character = characterList.characters.find(c => c.uuid === uuid)
 
   if (!character) {
     const response = await characterApi.fetchCharacter(uuid)

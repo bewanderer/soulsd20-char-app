@@ -5,6 +5,7 @@ import { getActiveCharacter, getAllCharacters, onCharacterSync, type StoredChara
 import { statMod, skillModBonusFromStats } from '@/mixins/utils'
 import { useCompendiumStore } from '@/store/compendium'
 import { calculateWeaponScaling, calculateSpellScaling } from '@/mixins/combatUtils'
+import { computeCombatHash } from '@/mixins/payloadHash'
 
 // Set at plugin init from runtime config
 let WEBSOCKET_URL = 'ws://localhost:8080'
@@ -43,6 +44,10 @@ const MESSAGE_TYPES = {
   CHARACTER_RESPONSE: 'character:response',
   CHARACTER_RESPONSE_LINKED: 'characters:response-linked',
   CHARACTER_UPDATE: 'character:update',
+  // Optimization 3: field-scoped delta. Currently the full payload sync is
+  // still the default path. This constant lets a caller opt in by calling
+  // sendCharacterDelta directly.
+  CHARACTER_DELTA_UPDATE: 'character:delta-update',
   FOUNDRY_READY: 'foundry:ready',
   CHARACTER_REQUEST_ALL: 'characters:request-all',
   CHARACTER_REQUEST: 'character:request',
@@ -557,6 +562,19 @@ function buildCombatResistances(character: StoredCharacter) {
   }
 }
 
+// Optimization 2: cache the built combat payload keyed by character uuid so
+// we can short-circuit rebuilds when nothing that affects combat has changed.
+// sourceHash is computed from computeCombatHash() over the fields that actually
+// influence the built payload (stats, skills, equipment, attunements, two-hand
+// flags, bonus resistances). If the hash matches, the cached payload is safe
+// to reuse; if not, we rebuild and update the cache.
+interface CombatPayloadCacheEntry {
+  payload: ReturnType<typeof buildCharacterPayload>
+  combatResistances: ReturnType<typeof buildCombatResistances>
+  sourceHash: string
+}
+const combatPayloadCache = new Map<string, CombatPayloadCacheEntry>()
+
 // Per-tab dedupe for combat:request-data. Multiple App tabs on the same
 // account all see the request and would all respond, so Foundry receives
 // duplicates. A short cross-tab claim via localStorage picks one responder.
@@ -598,7 +616,27 @@ function sendCombatData(uuid: string, actorId?: string, requestId?: string) {
     return
   }
 
-  const payload = buildCharacterPayload(character)
+  // Optimization 2: hash the fields that actually feed the combat payload.
+  // If the cache entry matches, we skip the rebuild entirely.
+  const currentHash = computeCombatHash(character)
+  const cached = combatPayloadCache.get(uuid)
+  let payload: ReturnType<typeof buildCharacterPayload>
+  let resistances: ReturnType<typeof buildCombatResistances>
+
+  if (cached && cached.sourceHash === currentHash) {
+    console.log('[Foundry Sync] Combat payload cache HIT for', character.name)
+    payload = cached.payload
+    resistances = cached.combatResistances
+  } else {
+    console.log('[Foundry Sync] Combat payload cache MISS for', character.name, cached ? '(hash changed)' : '(first fetch)')
+    payload = buildCharacterPayload(character)
+    resistances = buildCombatResistances(character)
+    combatPayloadCache.set(uuid, {
+      payload,
+      combatResistances: resistances,
+      sourceHash: currentHash,
+    })
+  }
 
   const combatData = {
     ...payload,
@@ -613,7 +651,7 @@ function sendCombatData(uuid: string, actorId?: string, requestId?: string) {
     attunedSpirits: payload.attuned_spirits,
     attunedWeaponSkills: payload.attuned_weapon_skills,
     bonusStatuses: payload.bonus_statuses,
-    resistances: buildCombatResistances(character)
+    resistances
   }
 
   console.log('[Foundry Sync] Sending combat data for', character.name, 'requestId=', requestId)
@@ -869,6 +907,19 @@ function scheduleDebouncedSync(characterUuid: string) {
     syncDebounceTimer = null
     sendCharacterUpdateForUuid(characterUuid)
   }, SYNC_DEBOUNCE_MS)
+}
+
+/**
+ * Optimization 3: send a field-scoped delta instead of the full payload.
+ * The delta can be either nested (`{ stats: { strength: 16 } }`) or dot-path
+ * (`{ 'stats.strength': 16 }`). Foundry merges it into its stored snapshot
+ * and invalidates cached macros for the character. Full CHARACTER_UPDATE
+ * remains the default sync path today - this helper is available for
+ * callers that already know which field changed.
+ */
+export function sendCharacterDelta(uuid: string, delta: Record<string, unknown>) {
+  if (!uuid || !delta || typeof delta !== 'object' || Object.keys(delta).length === 0) return
+  send(MESSAGE_TYPES.CHARACTER_DELTA_UPDATE, { uuid, delta })
 }
 
 /**

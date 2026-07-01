@@ -117,8 +117,10 @@ const characterCampaigns = ref<Record<string, Array<{ id: string; name: string }
 const assigningChar = ref<any | null>(null)
 
 async function loadCharacters() {
-  // Fetch only characters owned by current user (own_only bypasses admin override)
-  const response = await api.get<any[]>('/api/characters/?own_only=true')
+  // Optimization 1: dashboard uses the lightlist endpoint. Roughly 1KB per
+  // character vs 50KB for the full detail payload. campaigns field is
+  // included by the serializer via a select_related query, so no N+1.
+  const response = await api.get<any[]>('/api/characters/lightlist/')
   if (response.ok && response.data) {
     characters.value = response.data.map((c: any) => ({
       uuid: c.id,
@@ -130,7 +132,6 @@ async function loadCharacters() {
       last_played: c.last_played,
       campaigns: c.campaigns || [],
     }))
-    // Build campaign map from API response
     for (const char of characters.value) {
       if (char.campaigns?.length > 0) {
         characterCampaigns.value[char.uuid] = char.campaigns

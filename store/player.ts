@@ -155,6 +155,7 @@ type RootState = {
   _autoSaveInitialized: boolean; // Internal flag to prevent duplicate auto-save setup
   isLoadingCharacter: boolean; // Internal flag to prevent saves during character loading
   isDirty: boolean; // Track if data changed since last save
+  isHydrated: boolean; // Optimization 1: true once loadActiveCharacter has populated the store from localStorage. Saves and autosave are gated on this.
 }
 
 export const usePlayerStore = defineStore({
@@ -438,7 +439,8 @@ export const usePlayerStore = defineStore({
     },
     _autoSaveInitialized: false,
     isLoadingCharacter: false,  // Flag to prevent saves during character loading
-    isDirty: false  // Flag to track if data changed since last save
+    isDirty: false,  // Flag to track if data changed since last save
+    isHydrated: false  // Optimization 1: gates save() and setupAutoSave() until first loadActiveCharacter completes
   } as RootState),
 
   actions: {
@@ -447,6 +449,14 @@ export const usePlayerStore = defineStore({
       if (!this.UUID) {
         // No character loaded, nothing to save
         console.log('[SD20 Store] save() skipped: no UUID loaded')
+        return false
+      }
+
+      // Optimization 1: block saves before the store has been hydrated from
+      // localStorage. Prevents empty-defaults from stomping real character data
+      // when watchers fire on component mount.
+      if (!this.isHydrated) {
+        console.log('[SD20 Store] save() skipped: isHydrated flag is false')
         return false
       }
 
@@ -685,6 +695,10 @@ export const usePlayerStore = defineStore({
         has_multi_proficient: this.HasMultiProficient,
         multi_proficient_retroactive_points: this.MultiProficientRetroactivePoints,
       }
+
+      // Optimization 2: stamp a client-side revision that Foundry uses as a
+      // cache key. Independent of updated_at which only changes on API roundtrips.
+      characterData.local_updated_at = Date.now()
 
       const success = updateCharacterWithSync(this.UUID, characterData)
       if (!success) {
@@ -958,6 +972,7 @@ export const usePlayerStore = defineStore({
       this._autoSaveInitialized = false
       this.isLoadingCharacter = false
       this.isDirty = false
+      this.isHydrated = false
     },
 
     // Load active character from multi-character storage
@@ -1327,6 +1342,10 @@ export const usePlayerStore = defineStore({
 
       // Clear loading flag
       this.isLoadingCharacter = false
+
+      // Optimization 1: mark the store as hydrated. Unblocks save() and any
+      // watchers waiting for real data to be present.
+      this.isHydrated = true
 
       // Persist hydrated attunement entries so localStorage (and downstream
       // readers like the Foundry sync plugin) no longer carry id-only stubs.
