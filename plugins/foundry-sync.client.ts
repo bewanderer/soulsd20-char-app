@@ -17,6 +17,85 @@ const CONNECTION_KEY = '__sd20_foundry_sync__'
 const SYNC_DEBOUNCE_MS = 2000
 let syncDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
+// Item 1 (Batch C): field-scoped delta emit.
+// Fields listed here map to Foundry's DELTA_REGEN_MAP. If every changed field
+// since the last transmit lands in this set, send a delta; otherwise fall
+// back to the full CHARACTER_UPDATE payload. Keep the two sides in sync when
+// adding new fields.
+const DELTA_ELIGIBLE_ROOT_FIELDS = new Set([
+  'stats',
+  'skills',
+  'knowledge',
+  'level',
+  'attuned_spells',
+  'attuned_spirits',
+  'attuned_weapon_skills',
+  'bonus_resistances',
+  'bonus_statuses',
+  'bonus_resistances_active',
+])
+const DELTA_ELIGIBLE_DOT_FIELDS = new Set([
+  'equipment.MainHand',
+  'equipment.OffHand',
+  'weapon_modifications',
+  'combat_settings.twoHandingMainHand',
+  'combat_settings.twoHandingOffHand',
+])
+
+const _lastSentSnapshots = new Map<string, string>()
+
+function _stableStringify(value: unknown): string {
+  const seen = new WeakSet()
+  const walk = (v: any): any => {
+    if (v && typeof v === 'object') {
+      if (seen.has(v)) return null
+      seen.add(v)
+      if (Array.isArray(v)) return v.map(walk)
+      const out: Record<string, unknown> = {}
+      for (const key of Object.keys(v).sort()) out[key] = walk(v[key])
+      return out
+    }
+    return v
+  }
+  return JSON.stringify(walk(value))
+}
+
+function _extractDeltaCandidates(character: any): Record<string, unknown> {
+  const flat: Record<string, unknown> = {}
+  if (!character || typeof character !== 'object') return flat
+  for (const root of DELTA_ELIGIBLE_ROOT_FIELDS) {
+    if (character[root] !== undefined) flat[root] = character[root]
+  }
+  for (const path of DELTA_ELIGIBLE_DOT_FIELDS) {
+    const parts = path.split('.')
+    let cur: any = character
+    for (const p of parts) {
+      if (cur == null) { cur = undefined; break }
+      cur = cur[p]
+    }
+    if (cur !== undefined) flat[path] = cur
+  }
+  return flat
+}
+
+function _diffDeltaCandidates(current: Record<string, unknown>, prev: Record<string, unknown> | null): {
+  eligible: boolean
+  delta: Record<string, unknown>
+} {
+  const delta: Record<string, unknown> = {}
+  const currentKeys = new Set(Object.keys(current))
+  const prevKeys = new Set(prev ? Object.keys(prev) : [])
+  const all = new Set<string>([...currentKeys, ...prevKeys])
+  for (const key of all) {
+    const c = current[key]
+    const p = prev ? prev[key] : undefined
+    if (_stableStringify(c) !== _stableStringify(p)) {
+      delta[key] = c
+    }
+  }
+  return { eligible: Object.keys(delta).length > 0, delta }
+}
+
 // Fields that trigger sync when changed
 const SIGNIFICANT_CHANGE_PATHS = [
   'stats',
@@ -690,6 +769,11 @@ function connect() {
       state.isConnected = true
       state.reconnectAttempts = 0
       send(MESSAGE_TYPES.APP_HANDSHAKE, { version: '1.0.0' })
+      // Item 9 (Batch C): relay only routes broadcasts to sockets that
+      // explicitly subscribed. Reconnecting after a drop leaves the new
+      // socket with an empty subscription list until we replay the ones
+      // this tab already registered during the session.
+      replaySessionSubscriptions()
       startHeartbeat()
     }
 
@@ -923,7 +1007,13 @@ export function sendCharacterDelta(uuid: string, delta: Record<string, unknown>)
 }
 
 /**
- * Send character update for a specific UUID
+ * Send character update for a specific UUID.
+ *
+ * Item 1 (Batch C): try delta emit first. Extract the fields that Foundry's
+ * macro dependency map cares about, compare against the last-sent snapshot
+ * for this uuid. If only delta-eligible fields changed, send a delta message.
+ * Otherwise fall back to the full CHARACTER_UPDATE payload. First-ever send
+ * for a uuid is always the full payload since no prior snapshot exists.
  */
 function sendCharacterUpdateForUuid(uuid: string) {
   const allChars = getAllCharacters()
@@ -931,13 +1021,26 @@ function sendCharacterUpdateForUuid(uuid: string) {
 
   if (!character) return
 
-  console.log(`[Foundry Sync] Sending debounced update for ${character.name}`)
-  const payload = buildCharacterPayload(character)
-  send(MESSAGE_TYPES.CHARACTER_UPDATE, payload)
+  const candidates = _extractDeltaCandidates(character)
+  const prev = _lastSentSnapshots.get(uuid)
+  const prevParsed = prev ? JSON.parse(prev) as Record<string, unknown> : null
+  const { eligible, delta } = _diffDeltaCandidates(candidates, prevParsed)
+
+  if (prev && eligible) {
+    // Send a delta. The Foundry receiver merges the delta into its cached
+    // snapshot and calls invalidateCache(uuid, changedFields) so only the
+    // affected macro categories regen.
+    console.log(`[Foundry Sync] Sending delta for ${character.name}:`, Object.keys(delta))
+    sendCharacterDelta(uuid, delta)
+  } else {
+    console.log(`[Foundry Sync] Sending full update for ${character.name}`)
+    const payload = buildCharacterPayload(character)
+    send(MESSAGE_TYPES.CHARACTER_UPDATE, payload)
+  }
+
+  _lastSentSnapshots.set(uuid, JSON.stringify(candidates))
 
   // Mirror the same snapshot to other App clients subscribed to this character.
-  // The relay routes only to subscribers of this characterUuid, so unrelated
-  // sessions never see the payload.
   send(MESSAGE_TYPES.APP_CHARACTER_UPDATE, {
     characterUuid: uuid,
     origin: APP_ORIGIN_ID,
@@ -945,6 +1048,11 @@ function sendCharacterUpdateForUuid(uuid: string) {
     updated_at: character.updated_at || new Date().toISOString()
   })
 }
+
+// Item 9 (Batch C): remember every character uuid we have subscribed to in
+// this session so the WS reconnect flow can replay the subscriptions and the
+// relay keeps routing broadcasts to this tab.
+const _sessionSubscribedUuids = new Set<string>()
 
 let _isApplyingRemoteUpdate = false
 
@@ -1000,12 +1108,22 @@ async function handleIncomingAppUpdate(data: Record<string, unknown>) {
 
 function subscribeToCharacter(uuid: string) {
   if (!uuid) return
+  _sessionSubscribedUuids.add(uuid)
   send(MESSAGE_TYPES.APP_SUBSCRIBE_CHARACTER, { characterUuid: uuid, origin: APP_ORIGIN_ID })
 }
 
 function unsubscribeFromCharacter(uuid: string) {
   if (!uuid) return
+  _sessionSubscribedUuids.delete(uuid)
   send(MESSAGE_TYPES.APP_UNSUBSCRIBE_CHARACTER, { characterUuid: uuid, origin: APP_ORIGIN_ID })
+}
+
+function replaySessionSubscriptions() {
+  if (_sessionSubscribedUuids.size === 0) return
+  console.log(`[Foundry Sync] Replaying ${_sessionSubscribedUuids.size} character subscriptions after reconnect`)
+  for (const uuid of _sessionSubscribedUuids) {
+    send(MESSAGE_TYPES.APP_SUBSCRIBE_CHARACTER, { characterUuid: uuid, origin: APP_ORIGIN_ID })
+  }
 }
 
 /**

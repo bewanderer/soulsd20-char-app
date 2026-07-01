@@ -127,6 +127,14 @@ async function loadCharacter(uuid: string) {
     activeSubscriptionUuid = null
   }
 
+  // Item 6 (Batch C): mark this character as recently played. Coalesced with
+  // a 30s window so rapid re-selection does not spam the API. Flushes on
+  // beforeunload and on logout so a browser close still stamps the value.
+  try {
+    const { queueLastPlayed } = await import('~/mixins/lastPlayedBatch')
+    queueLastPlayed(uuid)
+  } catch { /* module optional in test envs */ }
+
   // Bug 2: try localStorage first without blocking on any initial API sync.
   // If we already have this character locally, render immediately and only
   // refresh in the background. If we do not, THEN we fall back to the network.

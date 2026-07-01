@@ -25,46 +25,51 @@ type RootState = {
   versions: CompendiumVersions | null,
 }
 
-// Optimization 7: version-aware cache.
+// Item 7 (Batch C): version-aware cache with per-layer refetch.
 //
 // Server exposes GET /api/compendium/versions/ returning:
 //   { core: <int>, campaigns: { <uuid>: <int>, ... } }
 //
-// Bumps whenever an item on that layer is created, edited, or deleted.
+// The 8 campaign-filtered endpoints accept ?layer=core and ?campaign=<uuid>
+// query params. The 5 always-official endpoints (weaponProfFeat, destinyFeat,
+// backgrounds, lineages, bloodlines) have no per-campaign concept and always
+// return their full official set.
 //
-// Client caches the full merged compendium arrays plus a versions snapshot in
-// localStorage. On load:
-//   - Fetch versions (small).
-//   - If cached versions match, use cached arrays and skip ALL data fetches.
-//   - If any version changed (or no cache), refetch the 13 data endpoints and
-//     replace the cache.
-//
-// The API also supports ?layer=core and ?campaign=<uuid> query params for
-// per-layer fetching, which is a future optimization. This implementation
-// takes the simpler "fetch everything when anything changed" approach because
-// (a) the win from skipping fetches when nothing changed is the dominant
-// benefit and (b) mixing per-layer fetching with the always-official endpoints
-// (backgrounds, lineages, bloodlines, weaponProfFeat, destinyFeat) adds
-// non-trivial complexity for a marginal further win.
-const CACHE_STORAGE_KEY = 'sd20_compendium_cache_v1'
+// On load:
+//   - Fetch versions.
+//   - Compare to cached versions per layer.
+//   - If nothing changed: use cached arrays, zero fetches.
+//   - If only core changed: refetch the 5 always-official endpoints + the 8
+//     campaign-filtered endpoints with ?layer=core, merge into cache leaving
+//     other campaigns' items intact.
+//   - If only campaign X changed: refetch the 8 campaign-filtered endpoints
+//     with ?campaign=X, merge into cache leaving core + other campaigns intact.
+//   - If both changed: do both passes.
+//   - No cache at all: full baseline fetch.
+const CACHE_STORAGE_KEY = 'sd20_compendium_cache_v2'
+
+const CAMPAIGN_FILTERED_ENDPOINTS: Array<{ key: keyof RootState; path: string }> = [
+  { key: 'WeaponSkills', path: '/weaponSkill/' },
+  { key: 'Spells', path: '/spell/' },
+  { key: 'Spirits', path: '/spirit/' },
+  { key: 'Items', path: '/item/' },
+  { key: 'Rings', path: '/ring/' },
+  { key: 'Artifacts', path: '/artifact/' },
+  { key: 'Armors', path: '/armor/' },
+  { key: 'Weapons', path: '/weapon/' },
+]
+
+const ALWAYS_OFFICIAL_ENDPOINTS: Array<{ key: keyof RootState; path: string }> = [
+  { key: 'WeaponFeats', path: '/weaponProfFeat/' },
+  { key: 'DestinyFeats', path: '/destinyFeat/' },
+  { key: 'Backgrounds', path: '/backgrounds/' },
+  { key: 'Lineages', path: '/lineages/' },
+  { key: 'Bloodlines', path: '/bloodlines/' },
+]
 
 type CompendiumCachePayload = {
   versions: CompendiumVersions
-  data: {
-    WeaponFeats: any[]
-    DestinyFeats: any[]
-    WeaponSkills: any[]
-    Spells: any[]
-    Spirits: any[]
-    Items: any[]
-    Rings: any[]
-    Artifacts: any[]
-    Armors: any[]
-    Weapons: any[]
-    Backgrounds: any[]
-    Lineages: any[]
-    Bloodlines: any[]
-  }
+  data: Record<string, any[]>
   storedAt: number
 }
 
@@ -86,22 +91,48 @@ function writeCache(payload: CompendiumCachePayload) {
   try {
     window.localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(payload))
   } catch (err) {
-    // localStorage may be full or blocked. Cache is a best-effort optimization.
     console.warn('[SD20 Compendium] Failed to persist cache:', err)
   }
 }
 
-function sameVersions(a: CompendiumVersions | null, b: CompendiumVersions | null): boolean {
-  if (!a || !b) return false
-  if (a.core !== b.core) return false
-  const aKeys = Object.keys(a.campaigns).sort()
-  const bKeys = Object.keys(b.campaigns).sort()
-  if (aKeys.length !== bKeys.length) return false
-  for (let i = 0; i < aKeys.length; i++) {
-    if (aKeys[i] !== bKeys[i]) return false
-    if (a.campaigns[aKeys[i]] !== b.campaigns[bKeys[i]]) return false
+function diffVersions(server: CompendiumVersions, cached: CompendiumVersions | null): {
+  coreChanged: boolean
+  changedCampaigns: string[]
+  removedCampaigns: string[]
+} {
+  if (!cached) {
+    return {
+      coreChanged: true,
+      changedCampaigns: Object.keys(server.campaigns),
+      removedCampaigns: [],
+    }
   }
-  return true
+  const coreChanged = server.core !== cached.core
+  const changedCampaigns: string[] = []
+  for (const [uuid, ver] of Object.entries(server.campaigns)) {
+    if (cached.campaigns[uuid] !== ver) changedCampaigns.push(uuid)
+  }
+  const removedCampaigns: string[] = []
+  for (const uuid of Object.keys(cached.campaigns)) {
+    if (server.campaigns[uuid] === undefined) removedCampaigns.push(uuid)
+  }
+  return { coreChanged, changedCampaigns, removedCampaigns }
+}
+
+async function _fetchLayer(base: string, path: string, params: string, headers: Record<string, string>): Promise<any[]> {
+  const url = base + path + (params ? `?${params}` : '')
+  return await $fetch<any[]>(url, { headers })
+}
+
+function _stripLayerFromCached(cachedArr: any[] | undefined, mode: 'core' | 'campaign', campaignUuid?: string): any[] {
+  if (!Array.isArray(cachedArr)) return []
+  if (mode === 'core') {
+    return cachedArr.filter(item => !item.is_official)
+  }
+  if (mode === 'campaign' && campaignUuid !== undefined) {
+    return cachedArr.filter(item => String(item.campaign) !== String(campaignUuid))
+  }
+  return cachedArr
 }
 
 export const useCompendiumStore = defineStore({
@@ -128,135 +159,146 @@ export const useCompendiumStore = defineStore({
 
   actions: {
     async getCompendium() {
-      // Skip if already loaded in this session
       if (this.isLoaded) return
 
       this.isLoading = true
       this.loadError = null
       const config = useRuntimeConfig()
+      const base = config.public.API_BASE_URL as string
 
-      const token = typeof window !== 'undefined'
-        ? localStorage.getItem('sd20_auth_token')
-        : null
+      const token = typeof window !== 'undefined' ? localStorage.getItem('sd20_auth_token') : null
       const headers: Record<string, string> = {}
-      if (token) {
-        headers['Authorization'] = `Token ${token}`
-      }
+      if (token) headers['Authorization'] = `Token ${token}`
 
       try {
-        // Optimization 7: check server versions before any data fetch.
         let serverVersions: CompendiumVersions | null = null
         try {
-          serverVersions = await $fetch<CompendiumVersions>(
-            config.public.API_BASE_URL + '/versions/',
-            { headers }
-          )
+          serverVersions = await $fetch<CompendiumVersions>(`${base}/versions/`, { headers })
         } catch (err) {
           console.warn('[SD20 Compendium] Version check failed, falling through to full fetch:', err)
         }
 
-        // Try the cache. If server versions match cached versions we can skip
-        // all 13 data fetches. Failure to read the cache falls through to
-        // network as if there was no cache.
-        if (serverVersions) {
-          const cache = readCache()
-          if (cache && sameVersions(serverVersions, cache.versions)) {
-            console.log('[SD20 Compendium] Cache HIT, skipping 13 data fetches')
-            this.WeaponFeats = cache.data.WeaponFeats
-            this.DestinyFeats = cache.data.DestinyFeats
-            this.WeaponSkills = cache.data.WeaponSkills
-            this.Spells = cache.data.Spells
-            this.Spirits = cache.data.Spirits
-            this.Items = cache.data.Items
-            this.Rings = cache.data.Rings
-            this.Artifacts = cache.data.Artifacts
-            this.Armors = cache.data.Armors
-            this.Weapons = cache.data.Weapons
-            this.Backgrounds = cache.data.Backgrounds
-            this.Lineages = cache.data.Lineages
-            this.Bloodlines = cache.data.Bloodlines
+        const cache = readCache()
+        const cachedVersions = cache?.versions || null
+
+        if (serverVersions && cache) {
+          const diff = diffVersions(serverVersions, cachedVersions)
+
+          if (!diff.coreChanged && diff.changedCampaigns.length === 0 && diff.removedCampaigns.length === 0) {
+            this._applyCache(cache.data)
             this.versions = serverVersions
             this.isLoaded = true
             this.isLoading = false
+            console.log('[SD20 Compendium] Cache HIT (all versions match), zero fetches')
             return
           }
+
+          console.log('[SD20 Compendium] Granular refetch:', diff)
+          const nextData: Record<string, any[]> = { ...cache.data }
+
+          // Removed campaigns: drop their items from every campaign-filtered layer.
+          for (const uuid of diff.removedCampaigns) {
+            for (const { key } of CAMPAIGN_FILTERED_ENDPOINTS) {
+              nextData[key] = _stripLayerFromCached(nextData[key], 'campaign', uuid)
+            }
+          }
+
+          // Core changed: refetch the 5 always-official endpoints and the 8
+          // campaign-filtered endpoints with ?layer=core. Merge.
+          if (diff.coreChanged) {
+            const alwaysOfficial = await Promise.all(
+              ALWAYS_OFFICIAL_ENDPOINTS.map(({ path }) => _fetchLayer(base, path, '', headers))
+            )
+            ALWAYS_OFFICIAL_ENDPOINTS.forEach(({ key }, i) => {
+              nextData[key] = alwaysOfficial[i]
+            })
+            const coreOnly = await Promise.all(
+              CAMPAIGN_FILTERED_ENDPOINTS.map(({ path }) => _fetchLayer(base, path, 'layer=core', headers))
+            )
+            CAMPAIGN_FILTERED_ENDPOINTS.forEach(({ key }, i) => {
+              const kept = _stripLayerFromCached(nextData[key], 'core')
+              nextData[key] = coreOnly[i].concat(kept)
+            })
+          }
+
+          // Each changed campaign: refetch the 8 campaign-filtered endpoints
+          // with ?campaign=<uuid>. Replace only that campaign's items.
+          for (const uuid of diff.changedCampaigns) {
+            const results = await Promise.all(
+              CAMPAIGN_FILTERED_ENDPOINTS.map(({ path }) => _fetchLayer(base, path, `campaign=${encodeURIComponent(uuid)}`, headers))
+            )
+            CAMPAIGN_FILTERED_ENDPOINTS.forEach(({ key }, i) => {
+              const kept = _stripLayerFromCached(nextData[key], 'campaign', uuid)
+              nextData[key] = kept.concat(results[i])
+            })
+          }
+
+          this._applyCache(nextData)
+          this.versions = serverVersions
+          writeCache({ versions: serverVersions, data: nextData, storedAt: Date.now() })
+          this.isLoaded = true
+          this.isLoading = false
+          return
         }
 
-        console.log('[SD20 Compendium] Cache MISS or version changed, fetching all endpoints')
+        // No cache OR no version response: full baseline fetch.
+        console.log('[SD20 Compendium] Full baseline fetch (no cache or no version response)')
 
         const [
           weaponFeats, destinyFeats, weaponSkills, spells, spirits,
           items, rings, artifacts, armors, weapons,
           backgrounds, lineages, bloodlines
         ] = await Promise.all([
-          $fetch<any[]>(config.public.API_BASE_URL + '/weaponProfFeat/', { headers }),
-          $fetch<any[]>(config.public.API_BASE_URL + '/destinyFeat/', { headers }),
-          $fetch<any[]>(config.public.API_BASE_URL + '/weaponSkill/', { headers }),
-          $fetch<any[]>(config.public.API_BASE_URL + '/spell/', { headers }),
-          $fetch<any[]>(config.public.API_BASE_URL + '/spirit/', { headers }),
-          $fetch<any[]>(config.public.API_BASE_URL + '/item/', { headers }),
-          $fetch<any[]>(config.public.API_BASE_URL + '/ring/', { headers }),
-          $fetch<any[]>(config.public.API_BASE_URL + '/artifact/', { headers }),
-          $fetch<any[]>(config.public.API_BASE_URL + '/armor/', { headers }),
-          $fetch<any[]>(config.public.API_BASE_URL + '/weapon/', { headers }),
-          $fetch<any[]>(config.public.API_BASE_URL + '/backgrounds/', { headers }),
-          $fetch<any[]>(config.public.API_BASE_URL + '/lineages/', { headers }),
-          $fetch<any[]>(config.public.API_BASE_URL + '/bloodlines/', { headers }),
+          $fetch<any[]>(base + '/weaponProfFeat/', { headers }),
+          $fetch<any[]>(base + '/destinyFeat/', { headers }),
+          $fetch<any[]>(base + '/weaponSkill/', { headers }),
+          $fetch<any[]>(base + '/spell/', { headers }),
+          $fetch<any[]>(base + '/spirit/', { headers }),
+          $fetch<any[]>(base + '/item/', { headers }),
+          $fetch<any[]>(base + '/ring/', { headers }),
+          $fetch<any[]>(base + '/artifact/', { headers }),
+          $fetch<any[]>(base + '/armor/', { headers }),
+          $fetch<any[]>(base + '/weapon/', { headers }),
+          $fetch<any[]>(base + '/backgrounds/', { headers }),
+          $fetch<any[]>(base + '/lineages/', { headers }),
+          $fetch<any[]>(base + '/bloodlines/', { headers }),
         ])
 
-        this.WeaponFeats = weaponFeats
-        this.DestinyFeats = destinyFeats
-        this.WeaponSkills = weaponSkills
-        this.Spells = spells
-        this.Spirits = spirits
-        this.Items = items
-        this.Rings = rings
-        this.Artifacts = artifacts
-        this.Armors = armors
-        this.Weapons = weapons
-        this.Backgrounds = backgrounds
-        this.Lineages = lineages
-        this.Bloodlines = bloodlines
-        this.versions = serverVersions
-
-        if (serverVersions) {
-          writeCache({
-            versions: serverVersions,
-            data: {
-              WeaponFeats: weaponFeats,
-              DestinyFeats: destinyFeats,
-              WeaponSkills: weaponSkills,
-              Spells: spells,
-              Spirits: spirits,
-              Items: items,
-              Rings: rings,
-              Artifacts: artifacts,
-              Armors: armors,
-              Weapons: weapons,
-              Backgrounds: backgrounds,
-              Lineages: lineages,
-              Bloodlines: bloodlines,
-            },
-            storedAt: Date.now(),
-          })
+        const data: Record<string, any[]> = {
+          WeaponFeats: weaponFeats, DestinyFeats: destinyFeats, WeaponSkills: weaponSkills,
+          Spells: spells, Spirits: spirits, Items: items, Rings: rings,
+          Artifacts: artifacts, Armors: armors, Weapons: weapons,
+          Backgrounds: backgrounds, Lineages: lineages, Bloodlines: bloodlines,
         }
-
+        this._applyCache(data)
+        this.versions = serverVersions
+        if (serverVersions) {
+          writeCache({ versions: serverVersions, data, storedAt: Date.now() })
+        }
         this.isLoaded = true
         this.isLoading = false
-
-        console.log('[SD20 Compendium] Loaded:', {
-          backgrounds: this.Backgrounds.length,
-          lineages: this.Lineages.length,
-          bloodlines: this.Bloodlines.length,
-          weapons: this.Weapons.length,
-          skills: this.WeaponSkills.length,
-        })
       } catch (error) {
         console.error('[SD20 Compendium] Failed to fetch:', error)
         this.isLoading = false
         this.loadError = 'Failed to load game data'
         throw error
       }
+    },
+
+    _applyCache(data: Record<string, any[]>) {
+      this.WeaponFeats = data.WeaponFeats || []
+      this.DestinyFeats = data.DestinyFeats || []
+      this.WeaponSkills = data.WeaponSkills || []
+      this.Spells = data.Spells || []
+      this.Spirits = data.Spirits || []
+      this.Items = data.Items || []
+      this.Rings = data.Rings || []
+      this.Artifacts = data.Artifacts || []
+      this.Armors = data.Armors || []
+      this.Weapons = data.Weapons || []
+      this.Backgrounds = data.Backgrounds || []
+      this.Lineages = data.Lineages || []
+      this.Bloodlines = data.Bloodlines || []
     },
 
     createItem(item: any) {

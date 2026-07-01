@@ -320,6 +320,15 @@ export function useAuth() {
 
   async function logout(): Promise<void> {
     console.log('[SD20 Auth] logout() called')
+
+    // Item 6 (Batch C): flush any pending last-played updates before the
+    // token is invalidated. If this fails or times out we still proceed with
+    // the logout - a stale last_played is not worth blocking on.
+    try {
+      const { flushLastPlayed } = await import('~/mixins/lastPlayedBatch')
+      await flushLastPlayed()
+    } catch { /* optional */ }
+
     try {
       await api.post('/api/auth/logout/')
       console.log('[SD20 Auth] logout() API call complete')
